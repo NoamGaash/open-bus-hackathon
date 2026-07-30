@@ -19,6 +19,7 @@ venv/
 # Node
 node_modules/
 frontend/dist/
+frontend/tsconfig.tsbuildinfo
 frontend/.vite/
 
 # Secrets — never commit these
@@ -32,6 +33,8 @@ Thumbs.db
 
 # Cached Stride API responses (re-fetchable; keeps the API healthy)
 .cache/
+# Generic on-disk memoization for slow external calls (openbus_hack.diskcache)
+cache/
 
 # Big raw dumps: keep these out of git, but keep DERIVED results in.
 # If a file here is genuinely worth sharing, force-add it:  git add -f <file>

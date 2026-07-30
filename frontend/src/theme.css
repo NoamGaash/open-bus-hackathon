@@ -90,9 +90,9 @@ body {
 
 /* ── layout ── */
 .page {
-  max-width: 1200px;
+  max-width: none;
   margin: 0 auto;
-  padding: 24px 20px 80px;
+  padding: 24px 4vw 80px;
 }
 
 .masthead {
@@ -201,16 +201,13 @@ button.ghost:hover:not(:disabled) {
   border-color: var(--border);
 }
 
-/* ── analysis cards ── */
+/* ── analysis cards ──
+   One card per row, full width — this dashboard gets presented on a large
+   monitor for the whole room, so a wide chart beats fitting more per screen. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  grid-template-columns: 1fr;
   gap: 18px;
-}
-@media (max-width: 560px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .card {

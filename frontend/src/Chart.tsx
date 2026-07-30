@@ -10,7 +10,9 @@ import { useMemo, useRef, useState } from 'react'
 import { fmtNum, seriesColor, type AnalysisResult } from './api'
 
 const PAD = { top: 8, right: 12, bottom: 26, left: 44 }
-const H = 210
+// Taller than the old multi-column default — cards are now full width for
+// presenting on a large monitor, and a wide-but-short chart reads badly.
+const H = 340
 
 interface Hover {
   cx: number

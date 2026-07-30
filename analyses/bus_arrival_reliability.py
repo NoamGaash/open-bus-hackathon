@@ -15,7 +15,6 @@ means all three cards usually run with identical parameters.
 from __future__ import annotations
 
 import datetime
-import threading
 import warnings
 from typing import Any, Callable
 
@@ -34,6 +33,7 @@ from bus_times import (
 from bus_times.config import DEFAULT_LAG_DAYS, DEFAULT_MIN_SAMPLES
 
 from openbus_hack import AnalysisRequest, OptionSpec, analysis, image
+from openbus_hack.diskcache import cached
 
 _INPUTS = ["lines", "operators", "dates"]
 _OPTIONS = [
@@ -69,24 +69,16 @@ def _window(req: AnalysisRequest) -> tuple[datetime.date, datetime.date]:
     return date_from, date_to
 
 
-# Single-flight cache: functools.lru_cache does NOT deduplicate concurrent calls with
-# the same key, only sequential ones. The dashboard's shared filter bar means all three
-# cards here usually fire with identical params at once, so a plain lru_cache still lets
-# all three pay the ~80s fetch in parallel. A lock per key makes the first caller do the
-# work while the other two wait on it instead of repeating it.
-_load_cache: dict[tuple, Any] = {}
-_load_locks: dict[tuple, threading.Lock] = {}
-_load_registry_lock = threading.Lock()
-
-
 def _load(line_short_name: str, operator: str, name_contains: str, direction: str,
           date_from: datetime.date, date_to: datetime.date):
+    # Disk-backed and single-flight (see openbus_hack.diskcache): the dashboard's shared
+    # filter bar means all three cards here usually fire with identical params at once,
+    # so the first caller pays the ~80s fetch while the other two wait on its result
+    # instead of repeating it — and a rehearsal re-run or dev-server reload later hits
+    # disk instead of the network entirely.
     key = (line_short_name, operator, name_contains, direction, date_from, date_to)
-    with _load_registry_lock:
-        lock = _load_locks.setdefault(key, threading.Lock())
-    with lock:
-        if key in _load_cache:
-            return _load_cache[key]
+
+    def compute():
         line = resolve_line(
             line_short_name, date_from, date_to,
             agency_name=operator or None,
@@ -98,9 +90,9 @@ def _load(line_short_name: str, operator: str, name_contains: str, direction: st
         days = stop_events["ride_date"].nunique()
         subtitle = (f"{date_from.isoformat()}..{date_to.isoformat()} · {rides} rides over "
                     f"{days} days · arrival times derived from GPS, ±30s")
-        result = (line, stop_events, ride_segments, subtitle)
-        _load_cache[key] = result
-        return result
+        return line, stop_events, ride_segments, subtitle
+
+    return cached("bus_arrival", key, compute)
 
 
 def _fetch(req: AnalysisRequest):
