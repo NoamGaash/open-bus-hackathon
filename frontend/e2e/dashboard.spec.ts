@@ -64,12 +64,20 @@ test('the hbar card renders a horizontal bar chart with rect bars', async ({ pag
   await expect(svg.getByText('Central Station ←', { exact: false })).toBeVisible()
 })
 
-test('the heatmap card renders an svg with rect cells', async ({ page }) => {
+test('the heatmap card renders a colored cell table', async ({ page }) => {
   await page.goto('/')
   const card = cardFor(page, heatmapMeta.title)
-  const svg = chartSvg(card)
-  await expect(svg).toBeVisible()
-  await expect(svg.locator('rect')).not.toHaveCount(0)
+  // The heatmap is a real <table>, not an SVG — see Heatmap.tsx.
+  const grid = card.locator('table.hm-table')
+  await expect(grid).toBeVisible()
+  // 4 rows x 3 cols in the fixture; 2 of those 12 are deliberately absent.
+  await expect(grid.locator('td.hm-cell')).toHaveCount(12)
+  await expect(grid.locator('td.hm-empty')).toHaveCount(2)
+  // One under-sampled cell gets the hatched treatment, distinct from both
+  // a solid cell and an absent one.
+  await expect(grid.locator('td.hm-weak')).toHaveCount(2)
+  // Row labels render in the sticky first column.
+  await expect(grid.getByRole('rowheader', { name: 'Stop A' })).toBeVisible()
 })
 
 test('the error card shows its error message text', async ({ page }) => {
@@ -95,12 +103,13 @@ test('the chart card "table" toggle switches to a relief table view', async ({ p
 test('the heatmap card "table" toggle switches to a relief table view', async ({ page }) => {
   await page.goto('/')
   const card = cardFor(page, heatmapMeta.title)
-  await expect(chartSvg(card)).toBeVisible()
+  await expect(card.locator('table.hm-table')).toBeVisible()
 
   await card.getByRole('button', { name: 'table', exact: true }).click()
 
-  await expect(card.locator('table')).toBeVisible()
-  await expect(chartSvg(card)).toHaveCount(0)
+  // The relief view is a plain table; the colored heatmap grid goes away.
+  await expect(card.locator('.table-wrap table')).toBeVisible()
+  await expect(card.locator('table.hm-table')).toHaveCount(0)
   await expect(card.getByRole('columnheader', { name: '07:00' })).toBeVisible()
 })
 
@@ -123,7 +132,7 @@ test('no uncaught page errors or console errors while exercising the dashboard',
   await expect(cardFor(page, metricsMeta.title).getByText('On-time %')).toBeVisible()
   await expect(chartSvg(cardFor(page, chartMeta.title))).toBeVisible()
   await expect(chartSvg(cardFor(page, hbarMeta.title))).toBeVisible()
-  await expect(chartSvg(cardFor(page, heatmapMeta.title))).toBeVisible()
+  await expect(cardFor(page, heatmapMeta.title).locator('table.hm-table')).toBeVisible()
   await expect(cardFor(page, errorMeta.title).getByText(ERROR_MESSAGE)).toBeVisible()
 
   // Exercise the table toggles and the "run all" button too — the more of the

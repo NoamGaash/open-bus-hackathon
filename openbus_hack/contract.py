@@ -36,6 +36,7 @@ __all__ = [
     "line_chart",
     "bar_chart",
     "heatmap",
+    "geo",
     "table",
     "image",
     "error",
@@ -449,6 +450,26 @@ def image(fig: Any = None, *, title: str | None = None, subtitle: str | None = N
         kind="image", title=title, subtitle=subtitle, notes=notes or [],
         image_png=base64.b64encode(buf.getvalue()).decode("ascii"),
         image_alt=alt or title or "chart",
+    )
+
+
+def geo(features: list[dict[str, Any]], *, title: str | None = None,
+        subtitle: str | None = None, notes: list[str] | None = None) -> AnalysisResult:
+    """A map, from a list of GeoJSON Feature dicts (LineString/Point geometries).
+
+    Per-feature styling is read from ``properties``: ``color`` (any CSS color),
+    ``weight`` (line width / marker radius), ``dashed`` (bool), and ``popup``
+    (text shown on click). The frontend auto-fits the map to the data — no
+    center/zoom to pass in.
+
+    >>> geo([
+    ...     {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[lon1, lat1], [lon2, lat2]]},
+    ...      "properties": {"color": "#31688e", "weight": 4}},
+    ... ], title="Vehicle trace")
+    """
+    return AnalysisResult(
+        kind="geo", title=title, subtitle=subtitle, notes=notes or [],
+        geojson={"type": "FeatureCollection", "features": features},
     )
 
 

@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Chart } from './Chart'
+import { GeoMap } from './GeoMap'
 import { Heatmap } from './Heatmap'
 import { SourceMaterial } from './SourceMaterial'
 import {
@@ -334,6 +335,10 @@ function AnalysisCard({
 
         {!busy && result && result.kind === 'heatmap' && result.heatmap && !showTable && (
           <Heatmap result={result} />
+        )}
+
+        {!busy && result && result.kind === 'geo' && result.geojson != null && (
+          <GeoMap result={result} />
         )}
 
         {!busy && result && result.kind === 'image' && result.image_png && (

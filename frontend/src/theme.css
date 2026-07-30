@@ -478,6 +478,75 @@ img.chart-img {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── heatmap (a real table — see Heatmap.tsx for why not SVG) ── */
+.hm-scroll {
+  overflow-x: auto;
+  /* The sticky row-label column needs a positioned scroll container. */
+  position: relative;
+}
+.hm-table {
+  border-collapse: separate;
+  /* 2px surface gap between adjacent fills, per the mark spec. */
+  border-spacing: 2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.hm-table th {
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.hm-table thead th {
+  padding: 2px 4px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.hm-rowlabel {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--surface);
+  text-align: end;
+  padding-inline-end: 8px;
+  /* Long Hebrew stop-pair names: cap the column and ellipsize rather than
+     let one label set the width of the whole grid. */
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.hm-corner {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+.hm-cell {
+  min-width: 30px;
+  height: 26px;
+  text-align: center;
+  border-radius: 3px;
+  cursor: default;
+}
+.hm-empty {
+  border: 1px solid var(--grid);
+  background: transparent;
+}
+/* Texture is the accessibility channel for "measured but shaky" — it survives
+   greyscale, print, and forced-colors where a tint alone does not. */
+.hm-weak,
+.hm-weak-swatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--ink) 45%, transparent) 0 1.4px,
+    transparent 1.4px 6px
+  );
+}
+.hm-weak-swatch {
+  background-color: var(--plane);
+}
+
 /* ── source material appendix ── */
 .source-material {
   margin-top: 32px;
