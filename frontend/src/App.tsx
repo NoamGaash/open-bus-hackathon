@@ -4,7 +4,7 @@
 // file. Filters at the top apply to every card at once, which is what makes the
 // demo flow ("here's line 480 across all of our analyses").
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Chart } from './Chart'
 import { Heatmap } from './Heatmap'
@@ -238,6 +238,22 @@ function AnalysisCard({
     void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runToken])
+
+  // Re-run this card when its OWN options change — the global "Run all" button
+  // doesn't know about per-card knobs, so without this a changed option updates
+  // the control and nothing else. Debounced, so typing in a text option sends
+  // one request when you stop rather than one per keystroke.
+  const optsKey = JSON.stringify(opts)
+  const mounted = useRef(false)
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      return
+    }
+    const t = setTimeout(() => void run(), 600)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [optsKey])
 
   const hasTable = !!result?.table?.rows?.length
   const isChart = result?.kind === 'chart'
