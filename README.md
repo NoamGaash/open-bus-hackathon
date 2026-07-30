@@ -128,6 +128,35 @@ Full API: https://open-bus-stride-api.hasadna.org.il/docs
 
 > `gtfs_rides_agg`'s `group_by` only accepts `gtfs_route_date`, `gtfs_route_hour`,
 > `operator_ref`, `day_of_week`, `line_ref`. Anything else returns a 500.
+> Direct link to that endpoint's docs:
+> https://open-bus-stride-api.hasadna.org.il/docs#/aggregations/group_by__gtfs_rides_agg_group_by_get
+
+### Skipping the client: direct Postgres access
+
+The Stride API is backed by a Postgres read replica, reachable directly if you'd
+rather write SQL than page through REST:
+
+```
+host = open-bus-stride-db.hasadna.org.il
+port = 5432
+user = talpihack26
+```
+
+(Password shared separately — ask in Slack if you don't have it.) Prefer
+`openbus_hack.stride` for anything the REST API already covers — it's cached on
+disk and won't hammer the shared DB.
+
+### More resources
+
+| | |
+|---|---|
+| Stride API source | https://github.com/hasadna/open-bus-stride-api |
+| Stride DB schema / data model | https://github.com/hasadna/open-bus-stride-db/blob/main/DATA_MODEL.md |
+| Stride Python client + notebook guide | https://github.com/hasadna/open-bus-stride-client/blob/main/README.md#using-the-interactive-jupyter-notebooks |
+| Open Bus map search (consumes this data today) | https://github.com/hasadna/open-bus-map-search |
+| Geo layer for roads / PT infrastructure | https://geo.mot.gov.il/ |
+| Line info lookup (e.g. line 86001) | https://markav.net/line/86001/ |
+| Hasadna Slack (#opendata / open-bus channels) | https://join.slack.com/t/hasadna/shared_invite/zt-458cp0v0n-GSnHzAq6F5aHeK43O4YeeA |
 
 ---
 
