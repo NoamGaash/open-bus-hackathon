@@ -1,0 +1,52 @@
+[project]
+name = "openbus-hack"
+version = "0.1.0"
+description = "Open Bus hackathon: shared infra for per-member analyses + presentation dashboard"
+requires-python = ">=3.12"
+dependencies = [
+    # data
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "python-dateutil>=2.9",
+    # api access
+    "httpx>=0.27",
+    # charts
+    "matplotlib>=3.9",
+    # server that feeds the React dashboard
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.8",
+    # notebooks
+    "jupyterlab>=4.2",
+    "ipywidgets>=8.1",
+    "nbdime>=4.0",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+# Heavier geo stack — only needed by analyses that draw maps.
+#   uv sync --extra geo
+geo = [
+    "geopandas>=1.0",
+    "folium>=0.17",
+    "shapely>=2.0",
+]
+
+[project.scripts]
+openbus-serve = "openbus_hack.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["openbus_hack"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# Analyses are exploratory; don't nag about unused vars in drafts.
+per-file-ignores = { "workspace/**" = ["E501", "F401", "F841"], "notebooks/**" = ["E501", "F401"] }

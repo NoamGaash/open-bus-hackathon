@@ -1,0 +1,333 @@
+"""The shared contract between each team member's analysis and the dashboard.
+
+Everyone writes the same shape of function::
+
+    @analysis(name="my-thing", title="My Thing", author="you")
+    def run(req: AnalysisRequest) -> AnalysisResult:
+        ...
+
+You get an :class:`AnalysisRequest` (which lines / which operators / what dates)
+and you return *something renderable*. You almost never build an
+:class:`AnalysisResult` by hand — use the helpers at the bottom of this module
+(:func:`metrics`, :func:`line_chart`, :func:`bar_chart`, :func:`table`,
+:func:`image`), or just return a matplotlib figure or a DataFrame and let the
+registry coerce it.
+"""
+
+from __future__ import annotations
+
+import base64
+import io
+from datetime import date, timedelta
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+__all__ = [
+    "AnalysisRequest",
+    "AnalysisResult",
+    "Metric",
+    "Point",
+    "Series",
+    "Table",
+    "metrics",
+    "line_chart",
+    "bar_chart",
+    "table",
+    "image",
+    "error",
+]
+
+# ── Input ────────────────────────────────────────────────────────────────────
+
+ChartType = Literal["line", "bar", "stacked_bar", "area", "scatter"]
+ResultKind = Literal["metrics", "chart", "table", "image", "geo", "error"]
+
+
+class AnalysisRequest(BaseModel):
+    """What the dashboard asks an analysis to look at.
+
+    Every field is optional with a sane default, so an analysis can be run with
+    ``AnalysisRequest()`` in a notebook and still do something useful.
+    """
+
+    lines: list[str] = Field(
+        default_factory=list,
+        description="GTFS route_short_name values, e.g. ['480', '1']. Empty = caller didn't filter by line.",
+    )
+    operators: list[str] = Field(
+        default_factory=list,
+        description="Agency names as they appear in GTFS, e.g. ['אגד', 'דן']. Empty = all operators.",
+    )
+    date_from: date = Field(default_factory=lambda: date.today() - timedelta(days=8))
+    date_to: date = Field(default_factory=lambda: date.today() - timedelta(days=1))
+    options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free-form knobs specific to one analysis. Declare them in @analysis(options=...).",
+    )
+
+    # ── convenience for analysis authors ──
+    @property
+    def line(self) -> str | None:
+        """First requested line, for analyses that only handle one."""
+        return self.lines[0] if self.lines else None
+
+    @property
+    def operator(self) -> str | None:
+        """First requested operator, for analyses that only handle one."""
+        return self.operators[0] if self.operators else None
+
+    @property
+    def days(self) -> int:
+        return (self.date_to - self.date_from).days + 1
+
+    def dates(self) -> list[date]:
+        return [self.date_from + timedelta(days=i) for i in range(self.days)]
+
+    def opt(self, key: str, default: Any = None) -> Any:
+        return self.options.get(key, default)
+
+
+# ── Output ───────────────────────────────────────────────────────────────────
+
+
+class Metric(BaseModel):
+    """A single headline number for a stat tile."""
+
+    label: str
+    value: float | int | str
+    unit: str | None = None
+    # Optional change-vs-baseline. Positive is not automatically "good" —
+    # say so explicitly, because for delays up is bad.
+    delta: float | None = None
+    delta_is_good: bool | None = None
+    help: str | None = None
+
+
+class Point(BaseModel):
+    x: str | float
+    y: float | None = None
+
+
+class Series(BaseModel):
+    """One line / one bar-group / one stack segment. Named, because the
+    dashboard always shows a legend for >= 2 series."""
+
+    name: str
+    points: list[Point] = Field(default_factory=list)
+
+
+class Table(BaseModel):
+    columns: list[str] = Field(default_factory=list)
+    rows: list[list[Any]] = Field(default_factory=list)
+
+
+class AnalysisResult(BaseModel):
+    """Whatever your analysis produced, in a form the dashboard can render.
+
+    One flat model rather than a union, so the frontend has a single shape to
+    narrow on ``kind`` and every renderer can fall back to ``table``.
+    """
+
+    kind: ResultKind = "metrics"
+    title: str | None = None
+    subtitle: str | None = None
+
+    # kind="metrics"
+    metrics: list[Metric] = Field(default_factory=list)
+
+    # kind="chart"
+    chart_type: ChartType = "line"
+    series: list[Series] = Field(default_factory=list)
+    x_label: str | None = None
+    y_label: str | None = None
+    # Set when x is a date/ordered category so the frontend doesn't re-sort it.
+    x_is_temporal: bool = False
+
+    # kind="table", and the mandatory relief view for every chart
+    # (light-mode palette has sub-3:1 slots, so a table view is required).
+    table: Table | None = None
+
+    # kind="image" — base64 PNG, for matplotlib/seaborn/folium output
+    image_png: str | None = None
+    image_alt: str | None = None
+
+    # kind="geo" — a GeoJSON FeatureCollection
+    geojson: dict[str, Any] | None = None
+
+    # Free-text caveats shown under the chart. Use these! "only 3 days of SIRI
+    # data available" belongs here, not in a print().
+    notes: list[str] = Field(default_factory=list)
+
+    # Populated by the registry on failure.
+    error_message: str | None = None
+    error_traceback: str | None = None
+
+    def ensure_table(self) -> AnalysisResult:
+        """Derive a table view from series if the author didn't supply one.
+
+        Called by the registry so every chart satisfies the relief rule for free.
+        """
+        if self.table is not None or not self.series:
+            return self
+        xs: list[str | float] = []
+        seen: set[str | float] = set()
+        for s in self.series:
+            for p in s.points:
+                if p.x not in seen:
+                    seen.add(p.x)
+                    xs.append(p.x)
+        by_series = {s.name: {p.x: p.y for p in s.points} for s in self.series}
+        self.table = Table(
+            columns=[self.x_label or "x", *by_series.keys()],
+            rows=[[x, *(by_series[n].get(x) for n in by_series)] for x in xs],
+        )
+        return self
+
+
+# ── Helpers: the API analysis authors actually touch ─────────────────────────
+
+
+def metrics(*items: Metric | tuple[str, Any] | dict[str, Any], title: str | None = None,
+            subtitle: str | None = None, notes: list[str] | None = None) -> AnalysisResult:
+    """Headline numbers. Accepts Metric objects, ``("label", value)`` tuples, or dicts.
+
+    >>> metrics(("Total rides", 1234), ("On-time %", 87.5))
+    """
+    out: list[Metric] = []
+    for it in items:
+        if isinstance(it, Metric):
+            out.append(it)
+        elif isinstance(it, tuple):
+            out.append(Metric(label=str(it[0]), value=it[1]))
+        else:
+            out.append(Metric(**it))
+    return AnalysisResult(kind="metrics", metrics=out, title=title, subtitle=subtitle,
+                          notes=notes or [])
+
+
+def _series_from(data: Any, x: str | None, y: str | None, series: str | None) -> list[Series]:
+    """Build Series from a DataFrame, a dict of {name: {x: y}}, or a list of Series."""
+    if isinstance(data, list) and (not data or isinstance(data[0], Series)):
+        return list(data)
+    if isinstance(data, dict):
+        return [
+            Series(name=str(k), points=[Point(x=xx, y=yy) for xx, yy in v.items()])
+            for k, v in data.items()
+        ]
+    # Assume DataFrame-like
+    df = data
+    if x is None or y is None:
+        raise ValueError("line_chart/bar_chart need x= and y= column names for a DataFrame")
+    if series:
+        return [
+            Series(
+                name=str(name),
+                points=[Point(x=_jsonable_x(r[x]), y=_nan_to_none(r[y])) for _, r in grp.iterrows()],
+            )
+            for name, grp in df.groupby(series, sort=False)
+        ]
+    return [
+        Series(
+            name=str(y),
+            points=[Point(x=_jsonable_x(r[x]), y=_nan_to_none(r[y])) for _, r in df.iterrows()],
+        )
+    ]
+
+
+def _jsonable_x(v: Any) -> str | float:
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return v
+    if hasattr(v, "isoformat"):
+        return v.isoformat()[:19]
+    return str(v)
+
+
+def _nan_to_none(v: Any) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if f != f else f  # NaN check without importing math
+
+
+def line_chart(data: Any, x: str | None = None, y: str | None = None, series: str | None = None,
+               *, title: str | None = None, subtitle: str | None = None,
+               x_label: str | None = None, y_label: str | None = None,
+               temporal: bool = True, notes: list[str] | None = None) -> AnalysisResult:
+    """A line chart from a DataFrame (``x=``/``y=``, optional ``series=`` to split)."""
+    return AnalysisResult(
+        kind="chart", chart_type="line", series=_series_from(data, x, y, series),
+        title=title, subtitle=subtitle, x_label=x_label or x, y_label=y_label or y,
+        x_is_temporal=temporal, notes=notes or [],
+    ).ensure_table()
+
+
+def bar_chart(data: Any, x: str | None = None, y: str | None = None, series: str | None = None,
+              *, stacked: bool = False, title: str | None = None, subtitle: str | None = None,
+              x_label: str | None = None, y_label: str | None = None,
+              notes: list[str] | None = None) -> AnalysisResult:
+    """A bar chart. ``stacked=True`` for parts-of-a-whole."""
+    return AnalysisResult(
+        kind="chart", chart_type="stacked_bar" if stacked else "bar",
+        series=_series_from(data, x, y, series),
+        title=title, subtitle=subtitle, x_label=x_label or x, y_label=y_label or y,
+        x_is_temporal=False, notes=notes or [],
+    ).ensure_table()
+
+
+def table(df: Any, *, title: str | None = None, subtitle: str | None = None,
+          max_rows: int = 500, notes: list[str] | None = None) -> AnalysisResult:
+    """A plain table from a DataFrame. Truncated to ``max_rows`` for transport."""
+    notes = list(notes or [])
+    total = len(df)
+    view = df.head(max_rows)
+    if total > max_rows:
+        notes.append(f"Showing first {max_rows:,} of {total:,} rows.")
+    return AnalysisResult(
+        kind="table", title=title, subtitle=subtitle, notes=notes,
+        table=Table(
+            columns=[str(c) for c in view.columns],
+            rows=[[_cell(v) for v in row] for row in view.itertuples(index=False)],
+        ),
+    )
+
+
+def _cell(v: Any) -> Any:
+    if v is None:
+        return None
+    if isinstance(v, (int, str, bool)):
+        return v
+    if isinstance(v, float):
+        return None if v != v else v
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    return str(v)
+
+
+def image(fig: Any = None, *, title: str | None = None, subtitle: str | None = None,
+          alt: str | None = None, dpi: int = 144,
+          notes: list[str] | None = None) -> AnalysisResult:
+    """Render a matplotlib figure to an inline PNG.
+
+    Pass a Figure, or nothing to grab the current pyplot figure.
+    """
+    import matplotlib.pyplot as plt
+
+    if fig is None:
+        fig = plt.gcf()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight",
+                facecolor=fig.get_facecolor())
+    plt.close(fig)
+    return AnalysisResult(
+        kind="image", title=title, subtitle=subtitle, notes=notes or [],
+        image_png=base64.b64encode(buf.getvalue()).decode("ascii"),
+        image_alt=alt or title or "chart",
+    )
+
+
+def error(message: str, traceback_text: str | None = None) -> AnalysisResult:
+    """A failed analysis. The dashboard shows this as a card, not a blank page."""
+    return AnalysisResult(kind="error", title="Analysis failed",
+                          error_message=message, error_traceback=traceback_text)

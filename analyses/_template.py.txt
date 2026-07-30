@@ -1,0 +1,80 @@
+"""TODO: one line describing what this analysis shows."""
+
+from __future__ import annotations
+
+import pandas as pd
+
+from openbus_hack import (
+    AnalysisRequest,
+    analysis,
+    bar_chart,
+    line_chart,
+    metrics,
+    stride,
+    table,
+)
+
+
+@analysis(
+    name="__NAME__",
+    title="TODO: Human-readable card title",
+    description="TODO: One or two sentences. This shows up on the dashboard card.",
+    author="__AUTHOR__",
+    # Trim this to only the pickers you actually use — the UI hides the rest.
+    inputs=["lines", "operators", "dates"],
+    # Flip to False when you're ready to be demoed.
+    draft=True,
+)
+def run(req: AnalysisRequest):
+    """Your analysis.
+
+    You get:
+        req.lines       list[str]  e.g. ["480", "1"]   (may be empty)
+        req.operators   list[str]  e.g. ["אגד"]        (may be empty)
+        req.date_from   date
+        req.date_to     date
+        req.line        first line or None   (convenience)
+        req.operator    first operator or None
+        req.days        number of days in the window
+
+    You return ONE of:
+        metrics(("Label", 42), ("Other", 3.5))        → stat tiles
+        line_chart(df, x="date", y="rides")           → line chart
+        bar_chart(df, x="hour", y="count")            → bar chart
+        table(df)                                     → a table
+        a matplotlib figure                           → rendered as a PNG
+        a DataFrame                                   → rendered as a table
+
+    Add caveats with notes=["only 3 days of SIRI data"] — they render under the chart.
+    """
+    # ── 1. Fetch ──────────────────────────────────────────────────────────────
+    # Handy starting points (all return DataFrames):
+    #   stride.agencies()
+    #   stride.routes(lines=req.lines, operators=req.operators,
+    #                 date_from=req.date_from, date_to=req.date_to)
+    #   stride.siri_rides(lines=req.lines, operators=req.operators,
+    #                     date_from=req.date_from, date_to=req.date_to)
+    #   stride.gtfs_rides_agg(req.date_from, req.date_to, group_by="operator_ref,day")
+    df = stride.routes(
+        lines=req.lines,
+        operators=req.operators,
+        date_from=req.date_from,
+        date_to=req.date_to,
+    )
+
+    if df.empty:
+        return metrics(("No data", 0), notes=["No routes matched those filters."])
+
+    # ── 2. Compute ────────────────────────────────────────────────────────────
+    # TODO: this is your bit.
+    daily = df.groupby("date").size().reset_index(name="routes")
+
+    # ── 3. Return something renderable ────────────────────────────────────────
+    return line_chart(
+        daily,
+        x="date",
+        y="routes",
+        title="TODO: chart title",
+        y_label="routes",
+        notes=[f"{len(df):,} rows over {req.days} days."],
+    )

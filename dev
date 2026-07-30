@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# The only command you need.
+#
+#   ./dev              start dashboard + API + JupyterLab together
+#   ./dev dash         dashboard (React) only
+#   ./dev api          analyses API only
+#   ./dev lab          JupyterLab only
+#   ./dev new <name>   scaffold a new analysis from the template
+#   ./dev list         list every registered analysis
+#   ./dev save "msg"   stage everything, commit, push
+#   ./dev setup        install/refresh dependencies
+#   ./dev check        import every analysis and report breakage
+#
+# Works inside the devcontainer and on a bare machine (no Docker needed).
+# ─────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+API_PORT="${API_PORT:-8000}"
+WEB_PORT="${WEB_PORT:-5173}"
+LAB_PORT="${LAB_PORT:-8888}"
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+info() { printf '\033[36m▸\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m!\033[0m %s\n' "$*"; }
+die()  { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+
+# ── Locate a Python with our deps ────────────────────────────────────────────
+# Priority: devcontainer venv → local .venv → uv-managed → system python.
+find_python() {
+  if [ -x /opt/venv/bin/python ]; then echo /opt/venv/bin/python; return; fi
+  if [ -x .venv/bin/python ];    then echo .venv/bin/python;    return; fi
+  if command -v uv >/dev/null 2>&1; then echo "uv:run"; return; fi
+  command -v python3 >/dev/null 2>&1 && { echo python3; return; }
+  die "No Python found. Install uv (https://astral.sh/uv) or open this repo in the devcontainer."
+}
+
+PY="$(find_python)" || exit 1
+# py <args...> — run python, transparently via `uv run` when that's what we have.
+py() {
+  if [ "$PY" = "uv:run" ]; then uv run --quiet python "$@"; else "$PY" "$@"; fi
+}
+pym() {
+  if [ "$PY" = "uv:run" ]; then uv run --quiet python -m "$@"; else "$PY" -m "$@"; fi
+}
+
+have_deps() { py -c 'import fastapi, pandas, openbus_hack' >/dev/null 2>&1; }
+
+# ── setup ────────────────────────────────────────────────────────────────────
+cmd_setup() {
+  if command -v uv >/dev/null 2>&1; then
+    info "Syncing Python deps with uv…"
+    uv sync || die "uv sync failed"
+  else
+    warn "uv not found — falling back to pip in a local .venv"
+    [ -d .venv ] || python3 -m venv .venv
+    .venv/bin/pip install --upgrade pip >/dev/null
+    .venv/bin/pip install -e . || die "pip install failed"
+    PY=.venv/bin/python
+  fi
+
+  if [ -d frontend ]; then
+    info "Installing frontend deps…"
+    ( cd frontend && { [ -f package-lock.json ] && npm ci --no-audit --no-fund || npm install --no-audit --no-fund; } ) \
+      || die "npm install failed"
+  fi
+  bold "✅ Ready. Run: ./dev"
+}
+
+ensure_deps() {
+  have_deps && return 0
+  warn "Dependencies missing — running ./dev setup first."
+  cmd_setup
+  PY="$(find_python)"
+}
+
+# ── individual services ──────────────────────────────────────────────────────
+cmd_api() {
+  ensure_deps
+  info "Analyses API  → http://localhost:${API_PORT}  (docs at /docs)"
+  pym uvicorn openbus_hack.server:app --host 0.0.0.0 --port "$API_PORT" --reload
+}
+
+cmd_dash() {
+  [ -d frontend/node_modules ] || ( cd frontend && npm install --no-audit --no-fund )
+  info "Dashboard → http://localhost:${WEB_PORT}"
+  ( cd frontend && npm run dev -- --host 0.0.0.0 --port "$WEB_PORT" )
+}
+
+cmd_lab() {
+  ensure_deps
+  info "JupyterLab → http://localhost:${LAB_PORT}"
+  pym jupyterlab --ip=0.0.0.0 --port="$LAB_PORT" --no-browser \
+      --IdentityProvider.token='' --ServerApp.password='' \
+      --ServerApp.root_dir=. 2>/dev/null \
+  || pym jupyter lab --ip=0.0.0.0 --port="$LAB_PORT" --no-browser \
+      --IdentityProvider.token='' --ServerApp.password='' --ServerApp.root_dir=.
+}
+
+# ── everything at once ───────────────────────────────────────────────────────
+cmd_up() {
+  ensure_deps
+  local pids=()
+  cleanup() {
+    echo
+    info "Shutting down…"
+    for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null; done
+    wait 2>/dev/null
+    exit 0
+  }
+  trap cleanup INT TERM
+
+  bold ""
+  bold "  Open Bus hackathon — starting all services"
+  printf '    Dashboard   http://localhost:%s   ← open this one\n' "$WEB_PORT"
+  printf '    API         http://localhost:%s/docs\n' "$API_PORT"
+  printf '    JupyterLab  http://localhost:%s\n' "$LAB_PORT"
+  bold ""
+
+  pym uvicorn openbus_hack.server:app --host 0.0.0.0 --port "$API_PORT" --reload \
+      2>&1 | sed $'s/^/\033[35m[api]\033[0m /' &
+  pids+=($!)
+
+  pym jupyter lab --ip=0.0.0.0 --port="$LAB_PORT" --no-browser \
+      --IdentityProvider.token='' --ServerApp.password='' --ServerApp.root_dir=. \
+      2>&1 | sed $'s/^/\033[33m[lab]\033[0m /' &
+  pids+=($!)
+
+  if [ -d frontend ]; then
+    [ -d frontend/node_modules ] || ( cd frontend && npm install --no-audit --no-fund )
+    ( cd frontend && npm run dev -- --host 0.0.0.0 --port "$WEB_PORT" ) \
+      2>&1 | sed $'s/^/\033[36m[web]\033[0m /' &
+    pids+=($!)
+  fi
+
+  wait
+}
+
+# ── scaffolding a new analysis ───────────────────────────────────────────────
+cmd_new() {
+  local name="${1:-}"
+  [ -z "$name" ] && die "Usage: ./dev new <analysis-name>    e.g. ./dev new delay-by-hour"
+  local slug file
+  slug="$(echo "$name" | tr '[:upper:] ' '[:lower:]_' | tr -cd 'a-z0-9_-')"
+  file="analyses/${slug//-/_}.py"
+  [ -e "$file" ] && die "$file already exists."
+
+  local who
+  who="$(git config --get user.name 2>/dev/null || echo "${USER:-me}")"
+
+  sed -e "s|__NAME__|$slug|g" -e "s|__AUTHOR__|$who|g" \
+      analyses/_template.py.txt > "$file" \
+    || die "Template analyses/_template.py.txt missing."
+  bold "✅ Created $file"
+  echo "   1. Open it and fill in the TODO."
+  echo "   2. ./dev             → your card appears on the dashboard."
+  echo "   3. ./dev save \"added $slug\""
+}
+
+cmd_list() {
+  ensure_deps
+  py - <<'PY'
+from openbus_hack import discover, registry
+problems = discover()
+reg = registry()
+if not reg:
+    print("No analyses registered yet. Create one:  ./dev new my-analysis")
+for spec in sorted(reg.values(), key=lambda s: (s.author, s.name)):
+    flag = "  [DRAFT]" if spec.draft else ""
+    print(f"  {spec.name:<28} {spec.title:<34} {spec.author or '?':<12}{flag}")
+if problems:
+    print("\n⚠ modules that failed to import:")
+    for p in problems:
+        print(f"   {p}")
+PY
+}
+
+cmd_check() {
+  ensure_deps
+  py - <<'PY'
+import sys
+from openbus_hack import discover, registry
+problems = discover()
+print(f"✔ {len(registry())} analyses registered")
+if problems:
+    print(f"✗ {len(problems)} module(s) failed to import:")
+    for p in problems:
+        print(f"   {p}")
+    sys.exit(1)
+PY
+}
+
+# ── git helper: make committing frictionless ─────────────────────────────────
+cmd_save() {
+  local msg="${*:-}"
+  [ -z "$msg" ] && msg="wip: $(git config --get user.name 2>/dev/null || echo work) $(date '+%H:%M')"
+  if [ -z "$(git status --porcelain)" ]; then
+    info "Nothing to save — working tree is clean."
+    return 0
+  fi
+  git add -A
+  git status --short
+  git commit -m "$msg" || die "commit failed"
+  if git remote get-url origin >/dev/null 2>&1; then
+    info "Pushing…"
+    git push 2>/dev/null || git push -u origin HEAD || warn "Push failed — commit is saved locally."
+  fi
+  bold "✅ Saved: $msg"
+}
+
+usage() {
+  sed -n '3,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+case "${1:-up}" in
+  up|"")      cmd_up ;;
+  dash|web)   cmd_dash ;;
+  api|server) cmd_api ;;
+  lab|jupyter) cmd_lab ;;
+  setup|install) cmd_setup ;;
+  new)        shift; cmd_new "$@" ;;
+  list|ls)    cmd_list ;;
+  check|test) cmd_check ;;
+  save|commit) shift; cmd_save "$@" ;;
+  help|-h|--help) usage ;;
+  *) die "Unknown command: $1  (try ./dev help)" ;;
+esac

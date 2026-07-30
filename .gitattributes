@@ -1,0 +1,10 @@
+# Notebooks are first-class tracked artifacts here, so make them diffable/mergeable.
+# nbdime ships in our deps; `./dev setup-git` wires it up as the notebook driver.
+*.ipynb diff=jupyternotebook
+*.ipynb merge=jupyternotebook
+
+# Keep line endings sane across the team
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary

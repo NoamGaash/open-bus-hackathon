@@ -1,0 +1,79 @@
+{
+  "name": "Open Bus Hackathon",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "os-provided"
+    }
+  },
+
+  // Ports the stack uses. Vite is the one you actually look at.
+  "forwardPorts": [5173, 8000, 8888],
+  "portsAttributes": {
+    "5173": { "label": "Dashboard (React)", "onAutoForward": "openBrowserOnce" },
+    "8000": { "label": "Analyses API (FastAPI)", "onAutoForward": "silent" },
+    "8888": { "label": "JupyterLab", "onAutoForward": "silent" }
+  },
+
+  // Install Python + Node deps once, at container create time.
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // Reminder in the terminal every time you attach.
+  "postAttachCommand": "bash .devcontainer/welcome.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.jupyter-renderers",
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.terminal.activateEnvironment": false,
+        "jupyter.notebookFileRoot": "${workspaceFolder}",
+        "notebook.output.textLineLimit": 60,
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "files.trimTrailingWhitespace": true,
+        // Nudge toward committing often.
+        "git.enableSmartCommit": true,
+        "git.autofetch": true,
+        "git.confirmSync": false
+      }
+    },
+    "codespaces": {
+      "openFiles": ["README.md", "analyses/example_service_by_operator.py"]
+    }
+  },
+
+  "remoteUser": "vscode",
+
+  "remoteEnv": {
+    "PYTHONPATH": "${containerWorkspaceFolder}",
+    // Vite must bind 0.0.0.0 to be reachable through the port forward.
+    "HOST": "0.0.0.0"
+  },
+
+  // Keep the pip/npm/uv caches warm across rebuilds.
+  "mounts": [
+    "source=openbus-hack-uv-cache,target=/home/vscode/.cache/uv,type=volume",
+    "source=openbus-hack-npm-cache,target=/home/vscode/.npm,type=volume"
+  ]
+}

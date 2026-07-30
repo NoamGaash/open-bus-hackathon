@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# This repo deliberately ignores AS LITTLE AS POSSIBLE.
+#
+# Team rule: commit your notebooks, your drafts, your intermediate CSVs and your
+# charts. A half-finished notebook in git is worth more than a perfect one on
+# your laptop. Only machine-generated junk and secrets are ignored below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Python runtime junk
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Secrets — never commit these
+.env
+.env.local
+*.secret
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Cached Stride API responses (re-fetchable; keeps the API healthy)
+.cache/
+
+# Big raw dumps: keep these out of git, but keep DERIVED results in.
+# If a file here is genuinely worth sharing, force-add it:  git add -f <file>
+workspace/**/data/raw/
+*.sqlite
+*.db
+*.parquet.tmp
