@@ -220,3 +220,23 @@ workspace/         per-person scratch space
 
 One broken analysis can't break the demo: import failures and exceptions render
 as an error card, and everything else keeps working.
+
+## Tests / CI
+
+The dashboard has a Playwright end-to-end suite in `frontend/e2e/`. It never
+talks to the real API — `/api/**` is intercepted with `page.route()` and
+served from hand-written fixtures under `frontend/e2e/fixtures/` (shaped to
+match `openbus_hack/contract.py`), because the real analyses call a public
+transit API and can take 60-90s per call. That means the suite only needs the
+Vite dev server, not the Python backend.
+
+```
+cd frontend
+npx playwright install --with-deps chromium   # first time only
+npm run test:e2e
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
+a `python` job that `uv sync`s and runs `./dev check` (plus a non-blocking
+`ruff check`), and a `frontend` job that type-checks with `tsc` and runs the
+Playwright suite, uploading the HTML report as an artifact.
