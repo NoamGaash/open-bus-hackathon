@@ -81,6 +81,15 @@ def run(req: AnalysisRequest):
                    "07:00-11:00 Israel time — try a different line/operator."],
         )
 
+    # SIRI snapshots overlap, so the same physical observation is reported more
+    # than once — measured at ~10% of rows in a sample window. Left in, those
+    # duplicates inflate the ping count and add zero-length map segments.
+    # (siri_ride__id never spans two vehicle_refs — checked across 6326 rides —
+    # so grouping by ride is safe without also keying on the plate.)
+    before = len(pings)
+    pings = pings.drop_duplicates(subset=["siri_ride__id", "recorded_at_time", "lat", "lon"])
+    duplicates = before - len(pings)
+
     # One ride: whichever siri_ride__id has the most pings in the window — same
     # pick the source notebook made ("the ride with the richest trail").
     ride_id = pings.groupby("siri_ride__id").size().idxmax()
@@ -129,6 +138,8 @@ def run(req: AnalysisRequest):
             f"Picked automatically: the ride with the most GPS pings among all "
             f"{pings['siri_ride__id'].nunique()} rides seen for this line/operator "
             "in the sampled window.",
+            f"{duplicates:,} duplicate ping(s) dropped before plotting — the same "
+            "vehicle, instant and position reported in overlapping SIRI snapshots.",
             _CREDIT,
         ],
     )

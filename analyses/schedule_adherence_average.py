@@ -95,7 +95,7 @@ def _load(line_ref: str, days_back: int):
     matches the reference stop sequence and that have GPS. Disk-cached: this is
     2 API calls per scanned day."""
 
-    key = ("v1", line_ref, days_back)
+    key = ("v2-dedup", line_ref, days_back)
 
     def compute():
         ref_date = datetime.date.today() - datetime.timedelta(days=LAG_DAYS)
@@ -177,6 +177,13 @@ def _load(line_ref: str, days_back: int):
 
             actual = pd.DataFrame(actual_rows)
             actual["recorded_at_time"] = pd.to_datetime(actual["recorded_at_time"], utc=True)
+            # Overlapping SIRI snapshots report the same physical observation more
+            # than once (~10% of rows in a sampled window). Duplicates are not
+            # harmless here: the map's average position is distance-weighted, and a
+            # duplicated ping carries its weight twice, pulling the measured route
+            # toward whatever happened to be reported twice.
+            actual = actual.drop_duplicates(
+                subset=["siri_ride__id", "recorded_at_time", "lat", "lon"])
             actual = (_largest_group(actual, "siri_ride__id")
                       .sort_values("recorded_at_time").reset_index(drop=True))
             matched.append({"date": day.isoformat(), "start": w_from, "actual": actual})
