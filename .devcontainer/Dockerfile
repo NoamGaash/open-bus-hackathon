@@ -29,6 +29,6 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 # Pre-create the mount points with the right owner. A fresh Docker named volume
 # inherits the ownership of the image path it covers — if ~/.claude doesn't exist
-# here, the volume mounts as root and Claude Code can't write its credentials.
-RUN mkdir -p /opt/venv /home/vscode/.cache/matplotlib /home/vscode/.claude \
-    && chown -R vscode:vscode /opt/venv /home/vscode/.cache /home/vscode/.claude
+# here, the volume mounts as root and Claude Code (or gh) can't write its credentials.
+RUN mkdir -p /opt/venv /home/vscode/.cache/matplotlib /home/vscode/.claude /home/vscode/.config/gh \
+    && chown -R vscode:vscode /opt/venv /home/vscode/.cache /home/vscode/.claude /home/vscode/.config

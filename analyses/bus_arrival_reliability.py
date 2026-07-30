@@ -15,7 +15,9 @@ means all three cards usually run with identical parameters.
 from __future__ import annotations
 
 import datetime
-from functools import lru_cache
+import threading
+import warnings
+from typing import Any, Callable
 
 from bus_times import (
     aggregate_segments,
@@ -67,21 +69,38 @@ def _window(req: AnalysisRequest) -> tuple[datetime.date, datetime.date]:
     return date_from, date_to
 
 
-@lru_cache(maxsize=8)
+# Single-flight cache: functools.lru_cache does NOT deduplicate concurrent calls with
+# the same key, only sequential ones. The dashboard's shared filter bar means all three
+# cards here usually fire with identical params at once, so a plain lru_cache still lets
+# all three pay the ~80s fetch in parallel. A lock per key makes the first caller do the
+# work while the other two wait on it instead of repeating it.
+_load_cache: dict[tuple, Any] = {}
+_load_locks: dict[tuple, threading.Lock] = {}
+_load_registry_lock = threading.Lock()
+
+
 def _load(line_short_name: str, operator: str, name_contains: str, direction: str,
           date_from: datetime.date, date_to: datetime.date):
-    line = resolve_line(
-        line_short_name, date_from, date_to,
-        agency_name=operator or None,
-        name_contains=name_contains or None,
-        direction=direction or None,
-    )
-    stop_events, ride_segments = load_line_data(line, date_from, date_to, verbose=False)
-    rides = stop_events["siri_ride_id"].nunique()
-    days = stop_events["ride_date"].nunique()
-    subtitle = (f"{date_from.isoformat()}..{date_to.isoformat()} · {rides} rides over "
-                f"{days} days · arrival times derived from GPS, ±30s")
-    return line, stop_events, ride_segments, subtitle
+    key = (line_short_name, operator, name_contains, direction, date_from, date_to)
+    with _load_registry_lock:
+        lock = _load_locks.setdefault(key, threading.Lock())
+    with lock:
+        if key in _load_cache:
+            return _load_cache[key]
+        line = resolve_line(
+            line_short_name, date_from, date_to,
+            agency_name=operator or None,
+            name_contains=name_contains or None,
+            direction=direction or None,
+        )
+        stop_events, ride_segments = load_line_data(line, date_from, date_to, verbose=False)
+        rides = stop_events["siri_ride_id"].nunique()
+        days = stop_events["ride_date"].nunique()
+        subtitle = (f"{date_from.isoformat()}..{date_to.isoformat()} · {rides} rides over "
+                    f"{days} days · arrival times derived from GPS, ±30s")
+        result = (line, stop_events, ride_segments, subtitle)
+        _load_cache[key] = result
+        return result
 
 
 def _fetch(req: AnalysisRequest):
@@ -94,6 +113,21 @@ def _fetch(req: AnalysisRequest):
         date_from=date_from,
         date_to=date_to,
     )
+
+
+def _render(plot: Callable[[], Any]) -> Any:
+    """Call a bus_times plot_* function with its Hebrew-glyph-fallback spam silenced.
+
+    Titles/subtitles mix Hebrew with Latin digits and punctuation; matplotlib's
+    HarfBuzz text layout warns once per *(glyph, call-site)* rather than once per
+    process (stacklevel varies through tight_layout), so a single render can emit
+    hundreds of "Glyph N missing from font(s) Noto Sans Hebrew" warnings. The glyph
+    still renders correctly via fallback — this is pure warning-machinery overhead
+    that was pinning the dev server's CPU under concurrent chart requests.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, message=r"Glyph \d+ .*missing from font")
+        return plot()
 
 
 @analysis(
@@ -110,7 +144,7 @@ def _fetch(req: AnalysisRequest):
 def run_segments(req: AnalysisRequest):
     line, _stop_events, ride_segments, subtitle = _fetch(req)
     aggregated = aggregate_segments(ride_segments, DEFAULT_MIN_SAMPLES)
-    fig = plot_segment_times(aggregated, line.label, subtitle)
+    fig = _render(lambda: plot_segment_times(aggregated, line.label, subtitle))
     return image(
         fig,
         title="Where the timetable is optimistic",
@@ -138,7 +172,8 @@ def run_segments(req: AnalysisRequest):
 def run_marey(req: AnalysisRequest):
     line, stop_events, _ride_segments, subtitle = _fetch(req)
     coverage = stop_coverage(stop_events)
-    fig = plot_marey(*elapsed_profiles(stop_events), line.label, subtitle, coverage=coverage)
+    fig = _render(lambda: plot_marey(*elapsed_profiles(stop_events), line.label, subtitle,
+                                     coverage=coverage))
     return image(
         fig,
         title="Where the bus loses time",
@@ -165,7 +200,8 @@ def run_marey(req: AnalysisRequest):
 def run_heatmap(req: AnalysisRequest):
     line, _stop_events, ride_segments, subtitle = _fetch(req)
     matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
-    fig = plot_segment_hour_heatmap(matrix, line.label, subtitle, min_samples=DEFAULT_MIN_SAMPLES)
+    fig = _render(lambda: plot_segment_hour_heatmap(matrix, line.label, subtitle,
+                                                    min_samples=DEFAULT_MIN_SAMPLES))
     return image(
         fig,
         title="Which segments break down at rush hour",

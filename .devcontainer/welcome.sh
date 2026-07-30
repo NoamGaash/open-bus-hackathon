@@ -14,6 +14,7 @@ cat <<'BANNER'
   ├─────────────────────────────────────────────────────────────────┤
   │  claude             Claude Code, in here with the whole stack   │
   │                     (first run asks you to sign in — once)      │
+  │  gh auth login      GitHub CLI (login persists across rebuilds) │
   ├─────────────────────────────────────────────────────────────────┤
   │  Your scratch space:  workspace/<your-name>/                    │
   │  Your analysis goes in:  analyses/<something>.py                │

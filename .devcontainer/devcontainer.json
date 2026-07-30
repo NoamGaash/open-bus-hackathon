@@ -12,6 +12,7 @@
     "ghcr.io/devcontainers/features/git:1": {
       "version": "os-provided"
     },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
     // Claude Code CLI + the VS Code extension. The :1.0 tag pins the feature's
     // install script, not the CLI version — it installs the latest and self-updates.
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
@@ -82,12 +83,15 @@
     "HOST": "0.0.0.0"
   },
 
-  // Keep caches and the Claude login warm across rebuilds.
+  // Keep caches and the Claude/gh logins warm across rebuilds.
   "mounts": [
     "source=openbus-hack-uv-cache,target=/home/vscode/.cache/uv,type=volume",
     "source=openbus-hack-npm-cache,target=/home/vscode/.npm,type=volume",
     // ${devcontainerId} scopes the login to this repo instead of sharing one
     // credential volume across every project on the machine.
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    // gh CLI keeps its OAuth token in ~/.config/gh/hosts.yml — same reasoning
+    // as the Claude volume above, so `gh auth login` survives a rebuild.
+    "source=gh-cli-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume"
   ]
 }

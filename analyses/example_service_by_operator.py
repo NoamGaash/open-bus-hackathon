@@ -1,4 +1,4 @@
-"""Worked example: planned vs actual service, by operator and by day.
+"""Worked example: planned vs actual service, by day.
 
 This file exists to be copied. It hits the real Stride API, handles the empty
 case, returns two different result kinds, and is deliberately short — if your
@@ -10,34 +10,24 @@ from __future__ import annotations
 
 import pandas as pd
 
-from openbus_hack import AnalysisRequest, OptionSpec, analysis, line_chart, metrics, stride
+from openbus_hack import AnalysisRequest, analysis, line_chart, metrics, stride
 
 
 @analysis(
     name="service-by-operator",
     title="Planned vs actual rides",
     description=(
-        "Daily count of rides each operator planned (GTFS) against how many were "
-        "actually observed (SIRI). The gap is unrun service."
+        "Daily count of rides planned (GTFS) against how many were actually "
+        "observed (SIRI), for the selected operator(s). The gap is unrun service."
     ),
     author="example",
     tags=["service", "reliability", "operators"],
-    # This one aggregates at operator level, so a line filter would be misleading.
+    # This one aggregates across whatever operators are selected, so a line
+    # filter would be misleading.
     inputs=["operators", "dates"],
-    options=[
-        OptionSpec(
-            key="top_n",
-            label="Show top N operators",
-            type="number",
-            default=5,
-            help="By total planned rides. The rest are folded into 'Other'.",
-        )
-    ],
     draft=False,
 )
 def run(req: AnalysisRequest):
-    top_n = int(req.opt("top_n", 5) or 5)
-
     # gtfs_rides_agg is pre-aggregated server-side — much kinder than paging
     # every individual ride.
     agg = stride.gtfs_rides_agg(
@@ -77,38 +67,39 @@ def run(req: AnalysisRequest):
 
     notes: list[str] = []
 
-    # Fold the long tail into "Other" — never generate a 9th series color.
-    totals = agg.groupby("agency_name")[planned_col].sum().sort_values(ascending=False)
-    keep = set(totals.head(top_n).index)
-    if len(totals) > top_n:
-        notes.append(f"{len(totals) - top_n} smaller operators folded into “Other”.")
-    agg["series"] = agg["agency_name"].where(agg["agency_name"].isin(keep), "Other")
-
     daily = (
-        agg.groupby(["gtfs_route_date", "series"], as_index=False)[planned_col]
+        agg.groupby("gtfs_route_date", as_index=False)[planned_col]
         .sum()
-        .rename(columns={planned_col: "planned", "gtfs_route_date": "day"})
+        .rename(columns={planned_col: "Planned", "gtfs_route_date": "day"})
     )
     daily["day"] = pd.to_datetime(daily["day"]).dt.date.astype(str)
-    daily = daily.sort_values("day")
 
     if actual_col is not None:
-        actual_total = float(agg[actual_col].sum())
-        planned_total = float(agg[planned_col].sum())
+        daily["Actual"] = (
+            agg.groupby("gtfs_route_date")[actual_col].sum().to_numpy()
+        )
+        actual_total, planned_total = float(agg[actual_col].sum()), float(agg[planned_col].sum())
         if planned_total:
             notes.append(
                 f"Overall {actual_total / planned_total:.1%} of planned rides were observed."
             )
+        long = daily.melt(id_vars="day", value_vars=["Planned", "Actual"],
+                          var_name="series", value_name="rides")
+    else:
+        notes.append("No actual-rides column returned by /gtfs_rides_agg — showing planned only.")
+        long = daily.rename(columns={"Planned": "rides"}).assign(series="Planned")
+
+    long = long.sort_values("day")
 
     return line_chart(
-        daily,
+        long,
         x="day",
-        y="planned",
+        y="rides",
         series="series",
-        title="Planned rides per day",
+        title="Planned vs actual rides per day",
         subtitle=f"{req.date_from} → {req.date_to}",
         x_label="day",
-        y_label="planned rides",
+        y_label="rides",
         notes=notes,
     )
 
