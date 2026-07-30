@@ -11,12 +11,15 @@ from . import stride
 from .contract import (
     AnalysisRequest,
     AnalysisResult,
+    Heatmap,
+    HeatmapCell,
     Metric,
     Point,
     Series,
     Table,
     bar_chart,
     error,
+    heatmap,
     image,
     line_chart,
     metrics,
@@ -35,6 +38,7 @@ __all__ = [
     "metrics",
     "line_chart",
     "bar_chart",
+    "heatmap",
     "table",
     "image",
     "error",
@@ -42,6 +46,8 @@ __all__ = [
     "Series",
     "Point",
     "Table",
+    "Heatmap",
+    "HeatmapCell",
     # data access
     "stride",
     # registry internals (mostly for the server + notebooks)

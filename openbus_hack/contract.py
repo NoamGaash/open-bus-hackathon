@@ -26,6 +26,8 @@ from pydantic import BaseModel, Field
 __all__ = [
     "AnalysisRequest",
     "AnalysisResult",
+    "Heatmap",
+    "HeatmapCell",
     "Metric",
     "Point",
     "Series",
@@ -33,6 +35,7 @@ __all__ = [
     "metrics",
     "line_chart",
     "bar_chart",
+    "heatmap",
     "table",
     "image",
     "error",
@@ -41,7 +44,7 @@ __all__ = [
 # ── Input ────────────────────────────────────────────────────────────────────
 
 ChartType = Literal["line", "bar", "stacked_bar", "area", "scatter"]
-ResultKind = Literal["metrics", "chart", "table", "image", "geo", "error"]
+ResultKind = Literal["metrics", "chart", "table", "image", "heatmap", "geo", "error"]
 
 
 class AnalysisRequest(BaseModel):
@@ -122,6 +125,43 @@ class Table(BaseModel):
     rows: list[list[Any]] = Field(default_factory=list)
 
 
+class HeatmapCell(BaseModel):
+    """One cell of a heatmap grid.
+
+    ``count`` is the sample size behind ``value``. It is separate from the value
+    on purpose: a cell resting on one observation and a cell resting on fifty must
+    not look equally authoritative, and a cell with *no* data must not look like a
+    cell that measured zero. The renderer draws those three states differently.
+    """
+
+    row: int
+    col: int
+    value: float | None = None
+    count: int | None = None
+    # Set when the cell is measured but under-sampled — drawn hatched, not hidden.
+    weak: bool = False
+
+
+class Heatmap(BaseModel):
+    """A labelled grid of values — segment × hour, stop × day, and so on.
+
+    Sparse by design: only cells that have something to say are listed, so a large
+    mostly-empty grid stays a small payload. Anything absent renders as "no data",
+    which is a distinct appearance from a measured zero.
+    """
+
+    row_labels: list[str] = Field(default_factory=list)
+    col_labels: list[str] = Field(default_factory=list)
+    cells: list[HeatmapCell] = Field(default_factory=list)
+    row_axis_label: str | None = None
+    col_axis_label: str | None = None
+    # Diverging scales need to know where "neutral" sits — e.g. 1.0 for an
+    # actual/planned ratio. Left None for a plain sequential (low→high) scale.
+    center: float | None = None
+    value_label: str | None = None
+    value_suffix: str | None = None
+
+
 class AnalysisResult(BaseModel):
     """Whatever your analysis produced, in a form the dashboard can render.
 
@@ -151,6 +191,9 @@ class AnalysisResult(BaseModel):
     # kind="image" — base64 PNG, for matplotlib/seaborn/folium output
     image_png: str | None = None
     image_alt: str | None = None
+
+    # kind="heatmap" — raw grid, rendered client-side (interactive, small payload)
+    heatmap: Heatmap | None = None
 
     # kind="geo" — a GeoJSON FeatureCollection
     geojson: dict[str, Any] | None = None
@@ -274,6 +317,61 @@ def bar_chart(data: Any, x: str | None = None, y: str | None = None, series: str
         title=title, subtitle=subtitle, x_label=x_label or x, y_label=y_label or y,
         x_is_temporal=False, notes=notes or [],
     ).ensure_table()
+
+
+def heatmap(values: Any, counts: Any = None, *, row_labels: list[str] | None = None,
+            col_labels: list[str] | None = None, min_count: int | None = None,
+            center: float | None = None, title: str | None = None,
+            subtitle: str | None = None, row_axis_label: str | None = None,
+            col_axis_label: str | None = None, value_label: str | None = None,
+            value_suffix: str | None = None,
+            notes: list[str] | None = None) -> AnalysisResult:
+    """A grid of values rendered client-side, from a DataFrame (rows × columns).
+
+    ``values`` is a DataFrame whose index is the rows and columns the columns;
+    ``counts`` is an optional same-shaped frame of sample sizes. Cells below
+    ``min_count`` are flagged ``weak`` and drawn hatched rather than dropped —
+    a silently missing cell is indistinguishable from one that has no data.
+
+    Pass ``center`` (e.g. ``1.0`` for an actual/planned ratio) to get a diverging
+    scale around that neutral point instead of a plain low→high one.
+
+    >>> heatmap(ratio_df, count_df, min_count=3, center=1.0)
+    """
+    rows = [str(r) for r in (row_labels if row_labels is not None else values.index)]
+    cols = [str(c) for c in (col_labels if col_labels is not None else values.columns)]
+
+    cells: list[HeatmapCell] = []
+    for i in range(len(rows)):
+        for j in range(len(cols)):
+            v = _nan_to_none(values.iat[i, j])
+            n = None if counts is None else _nan_to_none(counts.iat[i, j])
+            # Absent cells are simply omitted — the renderer shows "no data",
+            # which must not look like a measured zero.
+            if v is None and not n:
+                continue
+            count = None if n is None else int(n)
+            cells.append(HeatmapCell(
+                row=i, col=j, value=v, count=count,
+                weak=bool(min_count is not None and count is not None and count < min_count),
+            ))
+
+    # The relief view is mandatory (light-mode palette has sub-3:1 slots), so
+    # derive it here rather than asking every author to remember.
+    grid: dict[tuple[int, int], float | None] = {(c.row, c.col): c.value for c in cells}
+    return AnalysisResult(
+        kind="heatmap", title=title, subtitle=subtitle, notes=notes or [],
+        heatmap=Heatmap(
+            row_labels=rows, col_labels=cols, cells=cells,
+            row_axis_label=row_axis_label, col_axis_label=col_axis_label,
+            center=center, value_label=value_label, value_suffix=value_suffix,
+        ),
+        table=Table(
+            columns=[row_axis_label or "", *cols],
+            rows=[[rows[i], *(grid.get((i, j)) for j in range(len(cols)))]
+                  for i in range(len(rows))],
+        ),
+    )
 
 
 def table(df: Any, *, title: str | None = None, subtitle: str | None = None,

@@ -1,0 +1,279 @@
+// Client-rendered heatmap for AnalysisResult.kind === 'heatmap'.
+//
+// Three cell states are drawn differently on purpose: solid (enough samples),
+// hatched (measured but under-sampled), and absent (no data at all). Collapsing
+// "one observation" and "no data" into one appearance hides exactly the thing
+// worth knowing.
+
+import { useMemo, useState } from 'react'
+
+import { fmtNum, type AnalysisResult, type HeatmapCell } from './api'
+
+const PAD = { top: 8, right: 12, bottom: 44 }
+const CELL_MIN = 26
+// Capped well below the available width on a wide screen: a route can run to a
+// couple of dozen segments, and 64px rows would make the grid taller than the
+// viewport before it was any more readable.
+const CELL_MAX = 46
+const ROW_LABEL_W = 210
+
+interface Hover {
+  cx: number
+  cy: number
+  rowLabel: string
+  colLabel: string
+  cell: HeatmapCell
+}
+
+// Diverging arms, nearest-neutral first. Index picked by magnitude, so the
+// midpoint always reads as "nothing" — never a hue at the centre.
+const NEG = ['var(--div-neg-0)', 'var(--div-neg-1)', 'var(--div-neg-2)', 'var(--div-neg-3)']
+const POS = ['var(--div-pos-0)', 'var(--div-pos-1)', 'var(--div-pos-2)', 'var(--div-pos-3)']
+
+export function Heatmap({ result }: { result: AnalysisResult }) {
+  const hm = result.heatmap!
+  const [w, setW] = useState(900)
+  const [hover, setHover] = useState<Hover | null>(null)
+
+  const measure = (el: HTMLDivElement | null) => {
+    if (el && el.clientWidth && Math.abs(el.clientWidth - w) > 4) setW(el.clientWidth)
+  }
+
+  const byKey = useMemo(() => {
+    const m = new Map<string, HeatmapCell>()
+    for (const c of hm.cells) m.set(`${c.row}:${c.col}`, c)
+    return m
+  }, [hm.cells])
+
+  // Scale extent: the largest deviation from centre in either direction, so the
+  // two arms stay symmetric and a ratio of 2.0 reads as far from 1.0 as 0.5 does.
+  const extent = useMemo(() => {
+    const centre = hm.center ?? 0
+    let max = 0
+    for (const c of hm.cells) {
+      if (c.value === null || c.value === undefined) continue
+      max = Math.max(max, Math.abs(c.value - centre))
+    }
+    return max || 1
+  }, [hm.cells, hm.center])
+
+  const nRows = hm.row_labels.length
+  const nCols = hm.col_labels.length
+  if (!nRows || !nCols) return <p className="muted">No data to plot.</p>
+
+  const gridW = Math.max(120, w - ROW_LABEL_W - PAD.right)
+  const cell = Math.max(CELL_MIN, Math.min(CELL_MAX, gridW / nCols))
+  const innerW = cell * nCols
+  const H = PAD.top + cell * nRows + PAD.bottom
+
+  const colorFor = (v: number | null | undefined): string => {
+    if (v === null || v === undefined) return 'transparent'
+    const centre = hm.center ?? 0
+    const d = v - centre
+    const arm = d < 0 ? NEG : POS
+    // 4 steps across the arm; magnitude picks how far from neutral.
+    const idx = Math.min(arm.length - 1, Math.floor((Math.abs(d) / extent) * arm.length))
+    return Math.abs(d) < 1e-9 ? 'var(--div-mid)' : arm[idx]
+  }
+
+  // Ink on a cell: the outer steps of both arms are dark enough to need light text.
+  const inkFor = (v: number | null | undefined): string => {
+    if (v === null || v === undefined) return 'var(--muted)'
+    const d = v - (hm.center ?? 0)
+    const idx = Math.min(3, Math.floor((Math.abs(d) / extent) * 4))
+    return idx >= 2 ? '#ffffff' : 'var(--ink)'
+  }
+
+  const showCounts = cell >= 30
+
+  return (
+    <div ref={measure} style={{ minWidth: 0, overflowX: 'auto' }}>
+      <svg
+        width={ROW_LABEL_W + innerW + PAD.right}
+        height={H}
+        role="img"
+        aria-label={result.title ?? 'heatmap'}
+      >
+        <defs>
+          {/* Texture is the accessibility channel for "measured but shaky" — it
+              survives greyscale, print, and forced-colors where a tint does not. */}
+          <pattern id="hm-weak" patternUnits="userSpaceOnUse" width="6" height="6"
+            patternTransform="rotate(45)">
+            <rect width="6" height="6" fill="var(--surface)" opacity="0.55" />
+            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink)" strokeWidth="1.4"
+              opacity="0.5" />
+          </pattern>
+        </defs>
+
+        {/* row labels */}
+        {hm.row_labels.map((label, i) => (
+          <text
+            key={i}
+            x={ROW_LABEL_W - 10}
+            y={PAD.top + i * cell + cell / 2 + 3.5}
+            textAnchor="end"
+            fontSize={11}
+            fill="var(--ink-2)"
+            className="auto-dir"
+          >
+            {label.length > 30 ? `${label.slice(0, 29)}…` : label}
+          </text>
+        ))}
+
+        {/* column labels */}
+        {hm.col_labels.map((label, j) => (
+          <text
+            key={j}
+            x={ROW_LABEL_W + j * cell + cell / 2}
+            y={PAD.top + nRows * cell + 16}
+            textAnchor="middle"
+            fontSize={11}
+            fill="var(--ink-2)"
+          >
+            {label}
+          </text>
+        ))}
+
+        {/* cells */}
+        {hm.row_labels.map((rowLabel, i) =>
+          hm.col_labels.map((colLabel, j) => {
+            const c = byKey.get(`${i}:${j}`)
+            const x = ROW_LABEL_W + j * cell
+            const y = PAD.top + i * cell
+            // 2px surface gap between fills, per the mark spec.
+            const size = cell - 2
+            if (!c || c.value === null || c.value === undefined) {
+              return (
+                <rect
+                  key={`${i}:${j}`} x={x} y={y} width={size} height={size} rx={3}
+                  fill="none" stroke="var(--grid)" strokeWidth={1}
+                />
+              )
+            }
+            return (
+              <g
+                key={`${i}:${j}`}
+                onMouseMove={(e) =>
+                  setHover({ cx: e.clientX, cy: e.clientY, rowLabel, colLabel, cell: c })
+                }
+                onMouseLeave={() => setHover(null)}
+              >
+                <rect x={x} y={y} width={size} height={size} rx={3} fill={colorFor(c.value)} />
+                {c.weak && (
+                  <rect x={x} y={y} width={size} height={size} rx={3} fill="url(#hm-weak)" />
+                )}
+                {showCounts && c.count !== null && c.count !== undefined && (
+                  <text
+                    x={x + size / 2} y={y + size / 2 + 3.5} textAnchor="middle"
+                    fontSize={10} fill={c.weak ? 'var(--ink)' : inkFor(c.value)}
+                    style={{ fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}
+                  >
+                    {c.count}
+                  </text>
+                )}
+              </g>
+            )
+          }),
+        )}
+
+        {hm.col_axis_label && (
+          <text
+            x={ROW_LABEL_W + innerW / 2} y={H - 8} textAnchor="middle" fontSize={11}
+            fill="var(--muted)"
+          >
+            {hm.col_axis_label}
+          </text>
+        )}
+      </svg>
+
+      <Legend hm={hm} extent={extent} />
+
+      {hover && (
+        <div
+          className="tooltip"
+          style={{
+            left: Math.min(hover.cx + 12, window.innerWidth - 220),
+            top: hover.cy - 12,
+          }}
+        >
+          <div className="tt-x auto-dir">{hover.rowLabel}</div>
+          <div className="tt-row">
+            <span className="auto-dir">{hm.col_axis_label ?? 'column'}</span>
+            <b>{hover.colLabel}</b>
+          </div>
+          <div className="tt-row">
+            <span>{hm.value_label ?? 'value'}</span>
+            <b>
+              {fmtNum(hover.cell.value)}
+              {hm.value_suffix ?? ''}
+            </b>
+          </div>
+          {hover.cell.count !== null && hover.cell.count !== undefined && (
+            <div className="tt-row">
+              <span>samples</span>
+              <b>{hover.cell.count}</b>
+            </div>
+          )}
+          {hover.cell.weak && (
+            <div className="tt-row" style={{ color: 'var(--muted)' }}>
+              too few samples — treat as indicative
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Legend({ hm, extent }: { hm: AnalysisResult['heatmap']; extent: number }) {
+  if (!hm) return null
+  const centre = hm.center ?? 0
+  const swatches = [...NEG].reverse().concat(['var(--div-mid)'], POS)
+  return (
+    <div className="legend" style={{ marginTop: 10, alignItems: 'center' }}>
+      <span className="muted" style={{ fontSize: 11 }}>
+        {fmtNum(centre - extent)}
+        {hm.value_suffix ?? ''}
+      </span>
+      <span style={{ display: 'inline-flex', gap: 2 }}>
+        {swatches.map((c) => (
+          <i
+            key={c}
+            className="swatch"
+            style={{ background: c, borderRadius: 2, width: 16, height: 12 }}
+          />
+        ))}
+      </span>
+      <span className="muted" style={{ fontSize: 11 }}>
+        {fmtNum(centre + extent)}
+        {hm.value_suffix ?? ''}
+      </span>
+      <span className="legend-item" style={{ marginInlineStart: 14 }}>
+        <i
+          className="swatch"
+          style={{
+            borderRadius: 2,
+            width: 16,
+            height: 12,
+            border: '1px solid var(--grid)',
+            background: 'transparent',
+          }}
+        />
+        no data
+      </span>
+      <span className="legend-item">
+        <i
+          className="swatch"
+          style={{
+            borderRadius: 2,
+            width: 16,
+            height: 12,
+            background:
+              'repeating-linear-gradient(45deg, var(--muted) 0 1.4px, transparent 1.4px 6px)',
+          }}
+        />
+        too few samples
+      </span>
+    </div>
+  )
+}

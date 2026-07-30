@@ -32,7 +32,7 @@ from bus_times import (
 )
 from bus_times.config import DEFAULT_LAG_DAYS, DEFAULT_MIN_SAMPLES
 
-from openbus_hack import AnalysisRequest, OptionSpec, analysis, image
+from openbus_hack import AnalysisRequest, OptionSpec, analysis, heatmap, image
 from openbus_hack.diskcache import cached
 
 _INPUTS = ["lines", "operators", "dates"]
@@ -202,6 +202,43 @@ def run_heatmap(req: AnalysisRequest):
             "The number in each cell is its ride count: solid means enough rides, "
             "hatched means too few, blank means no data at all — those three are "
             "deliberately drawn differently.",
+            _CREDIT,
+        ],
+    )
+
+
+@analysis(
+    name="bus-hourly-heatmap-live",
+    title="Which segments break down at rush hour (interactive)",
+    description="The same segment × departure-hour view, returned as raw data and "
+                "drawn in the browser — hover any cell for its ratio and ride count.",
+    author="noamf2001",
+    tags=["reliability", "punctuality", "gps", "interactive"],
+    inputs=_INPUTS,
+    options=_OPTIONS,
+)
+def run_heatmap_live(req: AnalysisRequest):
+    line, _stop_events, ride_segments, subtitle = _fetch(req)
+    matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
+    # matrix.ratio is indexed by (segment_index, from_name, to_name); the segment
+    # pair is what a reader actually recognises, so label rows with that.
+    labels = [f"{from_name} ← {to_name}" for _, from_name, to_name in matrix.ratio.index]
+    return heatmap(
+        matrix.ratio,
+        matrix.count,
+        row_labels=labels,
+        col_labels=[f"{int(h):02d}" for h in matrix.ratio.columns],
+        min_count=DEFAULT_MIN_SAMPLES,
+        center=1.0,
+        title="Which segments break down at rush hour",
+        subtitle=f"{line.label} · {subtitle}",
+        row_axis_label="segment",
+        col_axis_label="departure hour",
+        value_label="actual / planned",
+        notes=[
+            "1.00 means exactly on schedule; above that the segment ran longer than "
+            "the timetable allows. Hatched cells are measured but rest on fewer than "
+            f"{DEFAULT_MIN_SAMPLES} rides; empty cells had no usable ride at all.",
             _CREDIT,
         ],
     )

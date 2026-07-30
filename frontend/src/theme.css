@@ -27,6 +27,19 @@
   --warning: #fab219;
   --good: #0ca30c;
 
+  /* Diverging scale for heatmaps: blue ↔ red with a NEUTRAL GRAY midpoint.
+     Never put a hue at the midpoint — the centre must read as "nothing".
+     Both arms validated: monotone lightness, >=0.06 ΔL per step, single hue. */
+  --div-neg-3: #1c5cab;
+  --div-neg-2: #3987e5;
+  --div-neg-1: #86b6ef;
+  --div-neg-0: #cde2fb;
+  --div-mid: #f0efec;
+  --div-pos-0: #fbdcdc;
+  --div-pos-1: #f0a6a6;
+  --div-pos-2: #e34948;
+  --div-pos-3: #a82c2c;
+
   --radius: 10px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -51,6 +64,17 @@
     --s6: #008300;
     --s7: #9085e9;
     --s8: #e66767;
+
+    /* Diverging: same arms, neutral midpoint stepped for the dark surface. */
+    --div-neg-3: #cde2fb;
+    --div-neg-2: #86b6ef;
+    --div-neg-1: #3987e5;
+    --div-neg-0: #1c5cab;
+    --div-mid: #383835;
+    --div-pos-0: #a82c2c;
+    --div-pos-1: #e34948;
+    --div-pos-2: #f0a6a6;
+    --div-pos-3: #fbdcdc;
   }
 }
 
@@ -73,6 +97,16 @@
   --s6: #008300;
   --s7: #9085e9;
   --s8: #e66767;
+
+  --div-neg-3: #cde2fb;
+  --div-neg-2: #86b6ef;
+  --div-neg-1: #3987e5;
+  --div-neg-0: #1c5cab;
+  --div-mid: #383835;
+  --div-pos-0: #a82c2c;
+  --div-pos-1: #e34948;
+  --div-pos-2: #f0a6a6;
+  --div-pos-3: #fbdcdc;
 }
 
 * {

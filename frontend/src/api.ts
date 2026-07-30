@@ -1,6 +1,6 @@
 // Types mirroring openbus_hack/contract.py. Keep them in sync.
 
-export type ResultKind = 'metrics' | 'chart' | 'table' | 'image' | 'geo' | 'error'
+export type ResultKind = 'metrics' | 'chart' | 'table' | 'image' | 'heatmap' | 'geo' | 'error'
 export type ChartType = 'line' | 'bar' | 'stacked_bar' | 'area' | 'scatter'
 
 export interface OptionSpec {
@@ -46,6 +46,28 @@ export interface Table {
   rows: unknown[][]
 }
 
+export interface HeatmapCell {
+  row: number
+  col: number
+  value: number | null
+  count: number | null
+  /** Measured but under-sampled — drawn hatched, never hidden. */
+  weak: boolean
+}
+
+export interface HeatmapData {
+  row_labels: string[]
+  col_labels: string[]
+  /** Sparse: absent cells mean "no data", which is distinct from a measured zero. */
+  cells: HeatmapCell[]
+  row_axis_label: string | null
+  col_axis_label: string | null
+  /** Neutral point for a diverging scale (e.g. 1.0 for a ratio); null = sequential. */
+  center: number | null
+  value_label: string | null
+  value_suffix: string | null
+}
+
 export interface AnalysisResult {
   kind: ResultKind
   title: string | null
@@ -59,6 +81,7 @@ export interface AnalysisResult {
   table: Table | null
   image_png: string | null
   image_alt: string | null
+  heatmap: HeatmapData | null
   geojson: unknown | null
   notes: string[]
   error_message: string | null

@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { Chart } from './Chart'
+import { Heatmap } from './Heatmap'
 import {
   api,
   fmtNum,
@@ -240,6 +241,9 @@ function AnalysisCard({
 
   const hasTable = !!result?.table?.rows?.length
   const isChart = result?.kind === 'chart'
+  // Both plot kinds get the table toggle — the relief view is mandatory, since
+  // some palette slots fall below 3:1 contrast in light mode.
+  const isPlot = isChart || result?.kind === 'heatmap'
 
   return (
     <section className="card">
@@ -309,6 +313,10 @@ function AnalysisCard({
 
         {!busy && result && isChart && !showTable && <Chart result={result} />}
 
+        {!busy && result && result.kind === 'heatmap' && result.heatmap && !showTable && (
+          <Heatmap result={result} />
+        )}
+
         {!busy && result && result.kind === 'image' && result.image_png && (
           <img
             className="chart-img"
@@ -319,7 +327,7 @@ function AnalysisCard({
 
         {!busy &&
           result &&
-          (result.kind === 'table' || (isChart && showTable)) &&
+          (result.kind === 'table' || (isPlot && showTable)) &&
           hasTable && <TableView result={result} />}
 
         {!busy && result && result.notes.length > 0 && (
@@ -338,7 +346,7 @@ function AnalysisCard({
           {busy ? 'running…' : '↻ rerun'}
         </button>
         {/* Table view is the relief for low-contrast palette slots in light mode. */}
-        {isChart && hasTable && (
+        {isPlot && hasTable && (
           <button className="ghost" onClick={() => setShowTable((s) => !s)}>
             {showTable ? 'chart' : 'table'}
           </button>

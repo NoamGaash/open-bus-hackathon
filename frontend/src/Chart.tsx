@@ -5,7 +5,7 @@
 // between adjacent/stacked fills, recessive horizontal-only gridlines, a legend
 // whenever there are >= 2 series, and a hover tooltip by default.
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { fmtNum, seriesColor, type AnalysisResult } from './api'
 
@@ -22,7 +22,6 @@ interface Hover {
 }
 
 export function Chart({ result }: { result: AnalysisResult }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(520)
   const [hover, setHover] = useState<Hover | null>(null)
 
@@ -108,10 +107,7 @@ export function Chart({ result }: { result: AnalysisResult }) {
 
   return (
     <div
-      ref={(el) => {
-        wrapRef.current = el
-        measure(el)
-      }}
+      ref={measure}
       style={{ minWidth: 0 }}
     >
       {series.length >= 2 && (
