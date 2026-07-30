@@ -46,15 +46,15 @@ const GROUPS: RepoGroup[] = [
       },
       {
         path: 'open-bus-stride-client-main/notebooks/compare_gtfs_siri_average.ipynb',
-        builtInto: 'analyses/schedule_adherence_average.py — the day-to-day stringline AND the planned-vs-measured map, both client-rendered',
+        builtInto: 'analyses/schedule_adherence_average.py — the day-to-day stringline, the planned-vs-measured map, and a which-day-ran-worst chart',
       },
       {
         path: 'open-bus-stride-client-main/notebooks/compare gtfs planned vs siri actual.ipynb',
-        builtInto: 'Not yet ported — single-ride planned-vs-actual stringline + map',
+        builtInto: 'Covered by schedule_adherence_average.py — each faint trace on the stringline IS one ride\'s plan-vs-actual, and schedule-adherence-by-day names the worst single day',
       },
       {
         path: 'open-bus-stride-client-main/notebooks/load gtfs timetable to pandas dataframe.ipynb',
-        builtInto: 'Not yet ported — planned-route map, colored by time of day',
+        builtInto: 'Covered by schedule-adherence-map — its dashed layer is exactly this: the planned route at GTFS coordinates, colored by time',
       },
       {
         path: 'open-bus-stride-client-main/notebooks/load siri vehicle locations to pandas dataframe.ipynb',
@@ -62,7 +62,7 @@ const GROUPS: RepoGroup[] = [
       },
       {
         path: 'open-bus-stride-client-main/notebooks/siri accessibility analysis using UrbanAccess.ipynb',
-        builtInto: 'Not yet ported — SIRI-derived pedestrian accessibility network (UrbanAccess)',
+        builtInto: 'Not ported — urbanaccess pulls ~10 heavy deps (pandana, osmnet, scipy, scikit-learn) and its own notebook warns the network build is slow; that is a batch job, not a live card',
       },
       {
         path: 'open-bus-stride-client-main/notebooks/Load route rides to dataframe.ipynb',

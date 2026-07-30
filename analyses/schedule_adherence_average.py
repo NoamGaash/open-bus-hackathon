@@ -47,6 +47,7 @@ from openbus_hack import (
     Point,
     Series,
     analysis,
+    bar_chart,
     geo,
     metrics,
     stride,
@@ -395,6 +396,73 @@ def run_map(req: AnalysisRequest):
             "running late there.",
             f"{int(has_avg.sum())}/{n_stops} stops had enough matched GPS to place; "
             "the rest are absent from the solid line.",
+            _CREDIT,
+        ],
+    )
+
+
+@analysis(
+    name="schedule-adherence-by-day",
+    title="Which day ran worst?",
+    description="Total journey time for each matched day against the schedule. "
+                "The stringline shows where time is lost; this shows which days "
+                "lost it.",
+    author="yuvalko1",
+    tags=["reliability", "punctuality", "gps", "interactive"],
+    inputs=[],
+    options=_OPTIONS,
+)
+def run_by_day(req: AnalysisRequest):
+    data = _fetch(req)
+    if data is None:
+        return metrics(("No data", 0), notes=[
+            "No day in the scanned window had both a matching timetable and GPS "
+            "for this line — try another line_ref or a longer scan.", _CREDIT])
+
+    per_day, planned_elapsed, _ = _per_stop_elapsed(data)
+    planned_total = float(planned_elapsed[-1])
+
+    rows = []
+    for d in per_day:
+        reached = d["elapsed"].dropna()
+        if reached.empty:
+            continue
+        # Last stop actually resolved, not the route's last stop — a day whose
+        # GPS died halfway would otherwise look impossibly quick.
+        rows.append({"day": d["date"], "kind": "Actual", "minutes": float(reached.iloc[-1]),
+                     "last_stop": int(reached.index[-1])})
+    if not rows:
+        return metrics(("No data", 0), notes=[
+            "No matched day resolved any stop from GPS.", _CREDIT])
+
+    df = pd.DataFrame(rows)
+    # Compare each day against the plan *up to the same stop*, so a truncated
+    # GPS trail isn't scored as if it had run the whole route.
+    df["planned"] = [float(planned_elapsed[i]) for i in df["last_stop"]]
+    df["delta"] = (df["minutes"] - df["planned"]).round(1)
+    df = df.sort_values("day")
+
+    long = pd.DataFrame({
+        "day": [*df["day"], *df["day"]],
+        "kind": ["Actual"] * len(df) + ["Planned"] * len(df),
+        "minutes": [*df["minutes"].round(1), *df["planned"].round(1)],
+    })
+
+    worst = df.loc[df["delta"].idxmax()]
+    best = df.loc[df["delta"].idxmin()]
+    return bar_chart(
+        long, x="day", y="minutes", series="kind", horizontal=True,
+        title="Which day ran worst?",
+        subtitle=(f"{data['label']} · {data['time_of_day']} departure · "
+                  f"{len(df)} matched days"),
+        x_label="day", y_label="minutes to last resolved stop",
+        notes=[
+            f"Worst day {worst['day']}: {worst['delta']:+.1f} min vs schedule. "
+            f"Best day {best['day']}: {best['delta']:+.1f} min.",
+            "Each day is compared against the plan up to the last stop its GPS "
+            "actually resolved, so a trail that cuts out early isn't scored as a "
+            "fast trip.",
+            f"Planned end-to-end run time is {planned_total:.0f} min.",
             _CREDIT,
         ],
     )
