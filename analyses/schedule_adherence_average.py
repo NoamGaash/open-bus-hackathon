@@ -267,10 +267,36 @@ def run_average(req: AnalysisRequest):
         name="Planned (GTFS)", emphasis=True, dashed=True,
         points=[Point(x=float(v), y=float(i)) for i, v in enumerate(planned_elapsed)],
     ))
-    avg = pd.concat([d["elapsed"] for d in per_day], axis=1).mean(axis=1, skipna=True)
+    # Averaging per stop across days is only meaningful where the same stops were
+    # measured on comparable days. Days cover very different subsets of the route
+    # (GPS drops out, trails start late), so a naive per-stop mean can take stop 12
+    # from a slow day and stop 13 from a fast one — producing an "average" trip
+    # that runs backwards along the route, which no bus ever did. Requiring a
+    # minimum number of days per stop keeps each averaged point on a comparable base.
+    by_day = pd.concat([d["elapsed"] for d in per_day], axis=1)
+    days_per_stop = by_day.notna().sum(axis=1)
+    min_days = max(2, (len(per_day) + 1) // 2)
+    avg = by_day.mean(axis=1, skipna=True).where(days_per_stop >= min_days)
+    dropped = int(((days_per_stop > 0) & (days_per_stop < min_days)).sum())
+
+    # Whatever survives should still climb monotonically — a bus cannot reach a
+    # later stop earlier. Residual dips are nearest-stop mis-assignment, not the
+    # bus reversing, so clamp them forward and say how many there were rather
+    # than drawing a physically impossible line.
+    avg_points = [(int(i), float(v)) for i, v in avg.items() if pd.notna(v)]
+    clamped = 0
+    running = float("-inf")
+    monotonic: list[tuple[int, float]] = []
+    for stop_i, val in avg_points:
+        if val < running:
+            clamped += 1
+            val = running
+        running = val
+        monotonic.append((stop_i, val))
+
     series.append(Series(
         name=f"Average actual (n={len(per_day)} days)", emphasis=True, color="var(--s2)",
-        points=[Point(x=float(v), y=float(i)) for i, v in avg.items() if pd.notna(v)],
+        points=[Point(x=v, y=float(i)) for i, v in monotonic],
     ))
 
     sk = data["skipped"]
@@ -287,6 +313,14 @@ def run_average(req: AnalysisRequest):
             f"Days skipped while scanning: {sk['no_plan']} with no timetable, "
             f"{sk['route_mismatch']} running a different stop pattern (a different "
             f"journey, not missing data), {sk['no_actual']} with no GPS.",
+            f"The average only covers stops measured on at least {min_days} of the "
+            f"{len(per_day)} matched days"
+            + (f" — {dropped} thinly-covered stop(s) left out of it, though their "
+               "individual days still show as faint lines." if dropped else "."),
+            *([f"{clamped} point(s) on the average dipped backwards along the route "
+               "— nearest-stop mis-assignment, not a reversing bus — and were "
+               "clamped forward to keep the line physically possible."]
+              if clamped else []),
             f"Only {len(per_day)} days matched — the source notebook required 20 "
             "before averaging, so treat this as indicative unless you raise the "
             "scan window.",
