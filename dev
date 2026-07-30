@@ -11,6 +11,7 @@
 #   ./dev save "msg"   stage everything, commit, push
 #   ./dev setup        install/refresh dependencies
 #   ./dev check        import every analysis and report breakage
+#   ./dev clone-repos  clone teammates' repos into ./repos for reference
 #
 # Works inside the devcontainer and on a bare machine (no Docker needed).
 # ─────────────────────────────────────────────────────────────────────────────
@@ -209,6 +210,34 @@ cmd_save() {
   bold "✅ Saved: $msg"
 }
 
+# ── teammates' repos, for reference ──────────────────────────────────────────
+# Cloned into ./repos (gitignored — they're separate repos with their own
+# history). Both are private, so this needs `gh auth login` first. The
+# dashboard's "Source material" section reads these same files over the API,
+# so this is only for grepping/editing them locally.
+REFERENCE_REPOS=(
+  "noamf2001/PublicTransportHackathon@analyze-per-subsequent-stops"
+  "yuvalko1/talpiot-hackathon-public-transportation@main"
+)
+
+cmd_clone_repos() {
+  command -v gh >/dev/null 2>&1 || die "gh CLI not found — it ships in the devcontainer."
+  gh auth status >/dev/null 2>&1 || die "Not logged in. Run: gh auth login  (these repos are private)"
+  mkdir -p repos
+  for entry in "${REFERENCE_REPOS[@]}"; do
+    local repo="${entry%@*}" branch="${entry#*@}" dest
+    dest="repos/${repo#*/}"
+    if [ -d "$dest/.git" ]; then
+      info "$dest already cloned — pulling."
+      ( cd "$dest" && git pull --ff-only ) || warn "pull failed for $dest"
+    else
+      info "Cloning $repo ($branch)…"
+      gh repo clone "$repo" "$dest" -- --branch "$branch" || warn "clone failed for $repo"
+    fi
+  done
+  bold "✅ Reference repos in ./repos"
+}
+
 usage() {
   sed -n '3,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
@@ -223,6 +252,7 @@ case "${1:-up}" in
   list|ls)    cmd_list ;;
   check|test) cmd_check ;;
   save|commit) shift; cmd_save "$@" ;;
+  clone-repos|repos) cmd_clone_repos ;;
   help|-h|--help) usage ;;
   *) die "Unknown command: $1  (try ./dev help)" ;;
 esac

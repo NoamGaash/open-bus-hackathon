@@ -58,7 +58,7 @@ const GROUPS: RepoGroup[] = [
       },
       {
         path: 'open-bus-stride-client-main/notebooks/load siri vehicle locations to pandas dataframe.ipynb',
-        builtInto: 'Not yet ported — single-vehicle actual GPS trace on a map',
+        builtInto: 'analyses/gps_trace_map.py — one ride\'s GPS trail on a Leaflet map, same time-of-day gradient',
       },
       {
         path: 'open-bus-stride-client-main/notebooks/siri accessibility analysis using UrbanAccess.ipynb',
@@ -75,6 +75,24 @@ const GROUPS: RepoGroup[] = [
       {
         path: 'open-bus-stride-client-main/notebooks/algorithm for getting data to calculate routes between points.ipynb',
         builtInto: 'Exploratory — unfinished trip-planning sketch, no chart',
+      },
+    ],
+  },
+  {
+    // Contributed as a notebook rather than a repo, so it lives at this repo's
+    // root and is read back from here — same viewer, no special case.
+    repo: 'NoamGaash/open-bus-hackathon',
+    branch: 'main',
+    url: 'https://github.com/NoamGaash/open-bus-hackathon',
+    author: 'team',
+    files: [
+      {
+        path: 'busline_usage_anomaly.ipynb',
+        builtInto:
+          'analyses/busline_usage_anomaly.py — peer-group ridership z-score. NOTE: the ' +
+          'notebook read a station-level data.gov.il resource that has no line column, so its ' +
+          'per-line metro score was the same global data for every line; the port uses the ' +
+          "ministry's own cluster grouping from the per-line resource instead.",
       },
     ],
   },
