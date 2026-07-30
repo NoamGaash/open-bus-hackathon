@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 __all__ = [
     "AnalysisRequest",
     "AnalysisResult",
+    "GeoLegend",
     "Heatmap",
     "HeatmapCell",
     "Metric",
@@ -158,6 +159,20 @@ class HeatmapCell(BaseModel):
     weak: bool = False
 
 
+class GeoLegend(BaseModel):
+    """What a map's colors mean. Without this a gradient is decoration — the
+    reader can see two marks differ but not by how much, or in which direction."""
+
+    label: str
+    # Ordered low→high; the frontend paints them as a continuous ramp.
+    colors: list[str] = Field(default_factory=list)
+    min_label: str | None = None
+    max_label: str | None = None
+    # Extra swatches for things the ramp doesn't cover — e.g. a dashed
+    # "planned" line vs. a solid measured one.
+    items: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class Heatmap(BaseModel):
     """A labelled grid of values — segment × hour, stop × day, and so on.
 
@@ -223,8 +238,9 @@ class AnalysisResult(BaseModel):
     # kind="heatmap" — raw grid, rendered client-side (interactive, small payload)
     heatmap: Heatmap | None = None
 
-    # kind="geo" — a GeoJSON FeatureCollection
+    # kind="geo" — a GeoJSON FeatureCollection, plus what its colors mean
     geojson: dict[str, Any] | None = None
+    geo_legend: GeoLegend | None = None
 
     # Free-text caveats shown under the chart. Use these! "only 3 days of SIRI
     # data available" belongs here, not in a print().
@@ -460,13 +476,17 @@ def image(fig: Any = None, *, title: str | None = None, subtitle: str | None = N
 
 
 def geo(features: list[dict[str, Any]], *, title: str | None = None,
-        subtitle: str | None = None, notes: list[str] | None = None) -> AnalysisResult:
+        subtitle: str | None = None, legend: GeoLegend | None = None,
+        notes: list[str] | None = None) -> AnalysisResult:
     """A map, from a list of GeoJSON Feature dicts (LineString/Point geometries).
 
     Per-feature styling is read from ``properties``: ``color`` (any CSS color),
     ``weight`` (line width / marker radius), ``dashed`` (bool), and ``popup``
     (text shown on click). The frontend auto-fits the map to the data — no
     center/zoom to pass in.
+
+    Pass ``legend`` whenever color carries meaning: a gradient nobody can read
+    is decoration, not encoding.
 
     >>> geo([
     ...     {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[lon1, lat1], [lon2, lat2]]},
@@ -476,6 +496,7 @@ def geo(features: list[dict[str, Any]], *, title: str | None = None,
     return AnalysisResult(
         kind="geo", title=title, subtitle=subtitle, notes=notes or [],
         geojson={"type": "FeatureCollection", "features": features},
+        geo_legend=legend,
     )
 
 

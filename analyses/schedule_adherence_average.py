@@ -46,6 +46,7 @@ from openbus_hack import (
     OptionSpec,
     Point,
     Series,
+    GeoLegend,
     analysis,
     bar_chart,
     geo,
@@ -385,6 +386,16 @@ def run_map(req: AnalysisRequest):
     return geo(
         features,
         title="Planned route vs. where buses actually were",
+        legend=GeoLegend(
+            label="minutes since departure",
+            colors=_GRADIENT,
+            min_label="0",
+            max_label=f"{vmax:.0f}",
+            items=[
+                {"label": "Planned (GTFS)", "color": "#666", "dashed": True},
+                {"label": "Measured (GPS average)", "color": "#666", "dashed": False},
+            ],
+        ),
         subtitle=(f"{data['label']} · {data['time_of_day']} departure · "
                   f"{len(per_day)} days · {int(n_pings.sum())} matched pings"),
         notes=[

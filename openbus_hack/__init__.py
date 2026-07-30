@@ -11,6 +11,7 @@ from . import stride
 from .contract import (
     AnalysisRequest,
     AnalysisResult,
+    GeoLegend,
     Heatmap,
     HeatmapCell,
     Metric,
@@ -48,6 +49,7 @@ __all__ = [
     "Series",
     "Point",
     "Table",
+    "GeoLegend",
     "Heatmap",
     "HeatmapCell",
     # data access

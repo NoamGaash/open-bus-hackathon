@@ -55,6 +55,16 @@ export interface Table {
   rows: unknown[][]
 }
 
+export interface GeoLegendData {
+  label: string
+  /** Ordered low→high; painted as a continuous ramp. */
+  colors: string[]
+  min_label: string | null
+  max_label: string | null
+  /** Extra swatches the ramp doesn't cover, e.g. dashed "planned" vs solid. */
+  items: { label?: string; color?: string; dashed?: boolean }[]
+}
+
 export interface HeatmapCell {
   row: number
   col: number
@@ -98,6 +108,7 @@ export interface AnalysisResult {
   image_alt: string | null
   heatmap: HeatmapData | null
   geojson: unknown | null
+  geo_legend: GeoLegendData | null
   notes: string[]
   error_message: string | null
   error_traceback: string | null

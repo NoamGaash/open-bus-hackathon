@@ -9,10 +9,9 @@ export, using our own already-wrapped, disk-cached stride.siri_vehicle_locations
 rather than raw HTTP calls.
 
 The companion notebooks that overlay a *planned* route on the same map
-("load gtfs timetable...ipynb", "compare gtfs planned vs siri actual.ipynb") need
-per-stop GTFS shape coordinates, which openbus_hack.stride doesn't wrap yet (only
-noamf2001's bus_times package fetches that, via /route_timetable/list) — left as
-a follow-up rather than rushed.
+("load gtfs timetable...ipynb", "compare gtfs planned vs siri actual.ipynb") are
+covered by ``analyses/schedule_adherence_average.py``'s map card, which draws the
+GTFS plan dashed against a GPS-derived measured route.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from __future__ import annotations
 import datetime
 from zoneinfo import ZoneInfo
 
-from openbus_hack import AnalysisRequest, analysis, geo, metrics, stride
+from openbus_hack import AnalysisRequest, GeoLegend, analysis, geo, metrics, stride
 
 ISRAEL_TZ = ZoneInfo("Asia/Jerusalem")
 _CREDIT = "Analysis by yuvalko1 (github.com/yuvalko1/talpiot-hackathon-public-transportation)."
@@ -114,6 +113,12 @@ def run(req: AnalysisRequest):
     return geo(
         features,
         title="One bus, actual GPS trace",
+        legend=GeoLegend(
+            label="minutes into the ride",
+            colors=_GRADIENT,
+            min_label=t_start.tz_convert(ISRAEL_TZ).strftime("%H:%M"),
+            max_label=t_end.tz_convert(ISRAEL_TZ).strftime("%H:%M"),
+        ),
         subtitle=(f"Line {line} ({operator}) · ride {int(ride_id)} · "
                   f"{t_start.tz_convert(ISRAEL_TZ).strftime('%Y-%m-%d %H:%M')} "
                   f"Israel time · {len(trace)} pings"),
