@@ -817,6 +817,15 @@ wheels = [
 ]
 
 [[package]]
+name = "json-stream"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/0c/0f698a6feab7ae7c9bfd60d91faa85e51141f51a271e86932ecf8265f335/json-stream-1.3.0.tar.gz", hash = "sha256:2790c16bccde6a77640c85e911a44de9c9de648206d9a4474b9ce398cfc7d14c", size = 18892, upload-time = "2021-11-06T15:11:55.322Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/c2/ef400c083c5391374d6d060e3abe9b9c4b16a1ca3d83de22e29a0f4def35/json_stream-1.3.0-py3-none-any.whl", hash = "sha256:bbb8bc29eed00d53d245224c893831c995bedc18b15fea08ed00c0cb485913ef", size = 18866, upload-time = "2021-11-06T15:11:52.869Z" },
+]
+
+[[package]]
 name = "json5"
 version = "0.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1430,6 +1439,17 @@ wheels = [
 ]
 
 [[package]]
+name = "open-bus-stride-client"
+version = "0.1.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "json-stream" },
+    { name = "pytz" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/56/2f/183ef1a5c38be979d0ff815e6a95f3ef58c461e29e51e3d71234e2547c0b/open-bus-stride-client-0.1.8.tar.gz", hash = "sha256:e61e842077df90f8a677ff85b516aee46d7459f509f6f88b5924d1b570f2e291", size = 9863, upload-time = "2023-02-05T12:44:22.278Z" }
+
+[[package]]
 name = "openbus-hack"
 version = "0.1.0"
 source = { editable = "." }
@@ -1442,6 +1462,7 @@ dependencies = [
     { name = "nbdime" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "publictransporthackathon" },
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "tqdm" },
@@ -1467,6 +1488,7 @@ requires-dist = [
     { name = "nbdime", specifier = ">=4.0" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
+    { name = "publictransporthackathon", git = "https://github.com/noamf2001/PublicTransportHackathon?rev=analyze-per-subsequent-stops" },
     { name = "pydantic", specifier = ">=2.8" },
     { name = "python-dateutil", specifier = ">=2.9" },
     { name = "shapely", marker = "extra == 'geo'", specifier = ">=2.0" },
@@ -1696,6 +1718,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/20/e5/16ff212c1e452235a90aeb09066144d0c5a6a8c0834397e03f5224495c4e/ptyprocess-0.7.0.tar.gz", hash = "sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220", size = 70762, upload-time = "2020-12-28T15:15:30.155Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/22/a6/858897256d0deac81a172289110f31629fc4cee19b6f01283303e18c8db3/ptyprocess-0.7.0-py2.py3-none-any.whl", hash = "sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35", size = 13993, upload-time = "2020-12-28T15:15:28.35Z" },
+]
+
+[[package]]
+name = "publictransporthackathon"
+version = "0.1.0"
+source = { git = "https://github.com/noamf2001/PublicTransportHackathon?rev=analyze-per-subsequent-stops#bdcd7c1030597cddf2fae3d43f631367fba491d2" }
+dependencies = [
+    { name = "ipykernel" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "open-bus-stride-client" },
+    { name = "pandas" },
 ]
 
 [[package]]
@@ -1933,6 +1967,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f7/ff/3cc9165fd44106973cd7ac9facb674a65ed853494592541d339bdc9a30eb/python_json_logger-4.1.0.tar.gz", hash = "sha256:b396b9e3ed782b09ff9d6e4f1683d46c83ad0d35d2e407c09a9ebbf038f88195", size = 17573, upload-time = "2026-03-29T04:39:56.805Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/27/be/0631a861af4d1c875f096c07d34e9a63639560a717130e7a87cbc82b7e3f/python_json_logger-4.1.0-py3-none-any.whl", hash = "sha256:132994765cf75bf44554be9aa49b06ef2345d23661a96720262716438141b6b2", size = 15021, upload-time = "2026-03-29T04:39:55.266Z" },
+]
+
+[[package]]
+name = "pytz"
+version = "2026.3.post1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/48/fb042503b6ca6cd271261dc559fd6432f7d8c713153e9ec5c591af4dfc1c/pytz-2026.3.post1.tar.gz", hash = "sha256:2211d3fcf9a797d3405cac96ac7f61d80e6a644f72a3309607282fe8a2010c5d", size = 319745, upload-time = "2026-07-25T15:12:07.385Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/7b/39c34ca613b0b198cb866466651b26b045e2009864c5183c979a3b83f383/pytz-2026.3.post1-py2.py3-none-any.whl", hash = "sha256:dd95840dd199baea12d9cc096a1d452caa6596a1c1e4b5f3dbd1541855d5e815", size = 508283, upload-time = "2026-07-25T15:12:05.782Z" },
 ]
 
 [[package]]
