@@ -3,10 +3,17 @@
 # Python 3.12 rather than 3.14: reliable wheels for the whole scientific stack.
 FROM mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
 
+# The base image ships a yarn apt source (dl.yarnpkg.com) with no matching
+# GPG key, which makes `apt-get update` fail outright. We install Node via a
+# devcontainer feature, not apt, so drop the broken source instead of fixing it.
+RUN rm -f /etc/apt/sources.list.d/yarn.list
+
 # Hebrew glyphs. Agency names come back as Hebrew, so without these fonts every
-# chart label renders as empty boxes. This is the only apt package we need.
+# chart label renders as empty boxes. Debian has no standalone "fonts-noto-hebrew"
+# package — NotoSansHebrew/NotoSerifHebrew ship inside fonts-noto-core. This is the
+# only apt package we need.
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get install -y --no-install-recommends fonts-noto-hebrew \
+    && apt-get install -y --no-install-recommends fonts-noto-core \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # uv: fast, lockfile-based Python env management.
