@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test'
 
-import { ERROR_MESSAGE, chartMeta, errorMeta, heatmapMeta, metricsMeta } from './fixtures/data'
+import {
+  ERROR_MESSAGE,
+  chartMeta,
+  errorMeta,
+  hbarMeta,
+  heatmapMeta,
+  metricsMeta,
+} from './fixtures/data'
 import { mockApi } from './fixtures/mockApi'
 
 // Every test intercepts /api/** with local fixtures — no request here is
@@ -17,7 +24,7 @@ test('dashboard loads and shows the masthead heading', async ({ page }) => {
 
 test('a card renders for each analysis in the mocked analyses list', async ({ page }) => {
   await page.goto('/')
-  for (const m of [metricsMeta, chartMeta, heatmapMeta, errorMeta]) {
+  for (const m of [metricsMeta, chartMeta, hbarMeta, heatmapMeta, errorMeta]) {
     await expect(page.getByRole('heading', { level: 2, name: m.title })).toBeVisible()
   }
 })
@@ -42,6 +49,19 @@ test('the chart card renders an svg', async ({ page }) => {
   await expect(svg).toBeVisible()
   // The chart draws its own line paths; a real render has some.
   await expect(svg.locator('path')).not.toHaveCount(0)
+})
+
+test('the hbar card renders a horizontal bar chart with rect bars', async ({ page }) => {
+  await page.goto('/')
+  const card = cardFor(page, hbarMeta.title)
+  const svg = chartSvg(card)
+  await expect(svg).toBeVisible()
+  // Bars render as <rect> elements — 2 series x 2 categories = 4 bars.
+  await expect(svg.locator('rect')).not.toHaveCount(0)
+  // Horizontal layout puts the long category labels on the y axis (truncated
+  // with an ellipsis past 28 chars by Chart.tsx's rowLabel — check a prefix
+  // that survives the truncation, not the full untruncated string).
+  await expect(svg.getByText('Central Station ←', { exact: false })).toBeVisible()
 })
 
 test('the heatmap card renders an svg with rect cells', async ({ page }) => {
@@ -97,22 +117,24 @@ test('no uncaught page errors or console errors while exercising the dashboard',
   await page.goto('/')
 
   // Wait for every mocked card to finish its run.
-  for (const m of [metricsMeta, chartMeta, heatmapMeta, errorMeta]) {
+  for (const m of [metricsMeta, chartMeta, hbarMeta, heatmapMeta, errorMeta]) {
     await expect(page.getByRole('heading', { level: 2, name: m.title })).toBeVisible()
   }
   await expect(cardFor(page, metricsMeta.title).getByText('On-time %')).toBeVisible()
   await expect(chartSvg(cardFor(page, chartMeta.title))).toBeVisible()
+  await expect(chartSvg(cardFor(page, hbarMeta.title))).toBeVisible()
   await expect(chartSvg(cardFor(page, heatmapMeta.title))).toBeVisible()
   await expect(cardFor(page, errorMeta.title).getByText(ERROR_MESSAGE)).toBeVisible()
 
   // Exercise the table toggles and the "run all" button too — the more of the
   // UI that runs in this pass, the more this assertion is actually worth.
   await cardFor(page, chartMeta.title).getByRole('button', { name: 'table', exact: true }).click()
+  await cardFor(page, hbarMeta.title).getByRole('button', { name: 'table', exact: true }).click()
   await cardFor(page, heatmapMeta.title)
     .getByRole('button', { name: 'table', exact: true })
     .click()
   await page.getByRole('button', { name: 'Run all' }).click()
-  for (const m of [metricsMeta, chartMeta, heatmapMeta, errorMeta]) {
+  for (const m of [metricsMeta, chartMeta, hbarMeta, heatmapMeta, errorMeta]) {
     await expect(page.getByRole('heading', { level: 2, name: m.title })).toBeVisible()
   }
 

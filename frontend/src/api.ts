@@ -1,7 +1,7 @@
 // Types mirroring openbus_hack/contract.py. Keep them in sync.
 
 export type ResultKind = 'metrics' | 'chart' | 'table' | 'image' | 'heatmap' | 'geo' | 'error'
-export type ChartType = 'line' | 'bar' | 'stacked_bar' | 'area' | 'scatter'
+export type ChartType = 'line' | 'bar' | 'stacked_bar' | 'area' | 'scatter' | 'trajectories'
 
 export interface OptionSpec {
   key: string
@@ -40,6 +40,8 @@ export interface Point {
 export interface Series {
   name: string
   points: Point[]
+  /** chart_type "trajectories" only: bold + legended vs. faint + unlegended. */
+  emphasis: boolean
 }
 export interface Table {
   columns: string[]
@@ -78,6 +80,10 @@ export interface AnalysisResult {
   x_label: string | null
   y_label: string | null
   x_is_temporal: boolean
+  /** bar/stacked_bar only: categories on the y axis, bars running left-to-right. */
+  horizontal: boolean
+  /** chart_type "trajectories" only: labels for integer y ticks 0..N-1. */
+  y_tick_labels: string[] | null
   table: Table | null
   image_png: string | null
   image_alt: string | null

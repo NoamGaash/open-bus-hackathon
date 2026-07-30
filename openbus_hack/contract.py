@@ -43,7 +43,7 @@ __all__ = [
 
 # ── Input ────────────────────────────────────────────────────────────────────
 
-ChartType = Literal["line", "bar", "stacked_bar", "area", "scatter"]
+ChartType = Literal["line", "bar", "stacked_bar", "area", "scatter", "trajectories"]
 ResultKind = Literal["metrics", "chart", "table", "image", "heatmap", "geo", "error"]
 
 
@@ -118,6 +118,11 @@ class Series(BaseModel):
 
     name: str
     points: list[Point] = Field(default_factory=list)
+    # kind="chart", chart_type="trajectories" only: an emphasized series (e.g. a
+    # single "Planned" reference line among many individual-ride trajectories)
+    # is drawn bold and legended; the rest share one muted, unlegended color —
+    # a legend entry per ride would be noise, not information.
+    emphasis: bool = False
 
 
 class Table(BaseModel):
@@ -183,6 +188,14 @@ class AnalysisResult(BaseModel):
     y_label: str | None = None
     # Set when x is a date/ordered category so the frontend doesn't re-sort it.
     x_is_temporal: bool = False
+    # Bars run left-to-right with categories on the y axis instead of the x —
+    # for bar/stacked_bar only. Needed when category labels are long (route
+    # names, stop pairs): rotated x labels collide, flat y labels don't.
+    horizontal: bool = False
+    # chart_type="trajectories" only: ordered labels for integer y ticks
+    # 0..N-1 (e.g. stop names), since y there is a stop *position*, not a
+    # plain number.
+    y_tick_labels: list[str] | None = None
 
     # kind="table", and the mandatory relief view for every chart
     # (light-mode palette has sub-3:1 slots, so a table view is required).
@@ -307,13 +320,14 @@ def line_chart(data: Any, x: str | None = None, y: str | None = None, series: st
 
 
 def bar_chart(data: Any, x: str | None = None, y: str | None = None, series: str | None = None,
-              *, stacked: bool = False, title: str | None = None, subtitle: str | None = None,
-              x_label: str | None = None, y_label: str | None = None,
+              *, stacked: bool = False, horizontal: bool = False, title: str | None = None,
+              subtitle: str | None = None, x_label: str | None = None, y_label: str | None = None,
               notes: list[str] | None = None) -> AnalysisResult:
-    """A bar chart. ``stacked=True`` for parts-of-a-whole."""
+    """A bar chart. ``stacked=True`` for parts-of-a-whole, ``horizontal=True`` when
+    category labels are long enough that rotated x-axis text would collide."""
     return AnalysisResult(
         kind="chart", chart_type="stacked_bar" if stacked else "bar",
-        series=_series_from(data, x, y, series),
+        series=_series_from(data, x, y, series), horizontal=horizontal,
         title=title, subtitle=subtitle, x_label=x_label or x, y_label=y_label or y,
         x_is_temporal=False, notes=notes or [],
     ).ensure_table()

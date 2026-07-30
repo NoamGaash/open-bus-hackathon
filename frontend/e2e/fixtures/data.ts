@@ -62,6 +62,8 @@ export const metricsResult: AnalysisResult = {
   x_label: null,
   y_label: null,
   x_is_temporal: false,
+  horizontal: false,
+  y_tick_labels: null,
   table: null,
   image_png: null,
   image_alt: null,
@@ -97,6 +99,7 @@ export const chartResult: AnalysisResult = {
         { x: '2026-07-25', y: null },
         { x: '2026-07-26', y: 15 },
       ],
+      emphasis: false,
     },
     {
       name: 'Line 1',
@@ -106,11 +109,14 @@ export const chartResult: AnalysisResult = {
         { x: '2026-07-25', y: 6 },
         { x: '2026-07-26', y: 9 },
       ],
+      emphasis: false,
     },
   ],
   x_label: 'Date',
   y_label: 'Rides',
   x_is_temporal: true,
+  horizontal: false,
+  y_tick_labels: null,
   table: {
     columns: ['Date', 'Line 480', 'Line 1'],
     rows: [
@@ -149,6 +155,8 @@ export const heatmapResult: AnalysisResult = {
   x_label: null,
   y_label: null,
   x_is_temporal: false,
+  horizontal: false,
+  y_tick_labels: null,
   table: {
     columns: ['Stop', '07:00', '08:00', '09:00'],
     rows: [
@@ -189,6 +197,61 @@ export const heatmapResult: AnalysisResult = {
   error_traceback: null,
 }
 
+// ── horizontal bar chart card (2 series, long category labels) ────────────
+
+export const HBAR_NAME = 'segment-times'
+
+export const hbarMeta: AnalysisMeta = meta({
+  name: HBAR_NAME,
+  title: 'Segment times',
+  description: 'Actual vs planned duration per segment.',
+})
+
+export const hbarResult: AnalysisResult = {
+  kind: 'chart',
+  title: 'Segment times',
+  subtitle: null,
+  metrics: [],
+  chart_type: 'bar',
+  series: [
+    {
+      name: 'Actual (median)',
+      points: [
+        { x: 'Central Station ← North Terminal', y: 3.2 },
+        { x: 'North Terminal ← Market Square', y: 1.8 },
+      ],
+      emphasis: false,
+    },
+    {
+      name: 'Planned',
+      points: [
+        { x: 'Central Station ← North Terminal', y: 2.5 },
+        { x: 'North Terminal ← Market Square', y: 2.0 },
+      ],
+      emphasis: false,
+    },
+  ],
+  x_label: 'segment',
+  y_label: 'minutes',
+  x_is_temporal: false,
+  horizontal: true,
+  y_tick_labels: null,
+  table: {
+    columns: ['segment', 'Actual (median)', 'Planned'],
+    rows: [
+      ['Central Station ← North Terminal', 3.2, 2.5],
+      ['North Terminal ← Market Square', 1.8, 2.0],
+    ],
+  },
+  image_png: null,
+  image_alt: null,
+  heatmap: null,
+  geojson: null,
+  notes: [],
+  error_message: null,
+  error_traceback: null,
+}
+
 // ── error card ────────────────────────────────────────────────────────────
 
 export const ERROR_NAME = 'broken-analysis'
@@ -212,6 +275,8 @@ export const errorResult: AnalysisResult = {
   x_label: null,
   y_label: null,
   x_is_temporal: false,
+  horizontal: false,
+  y_tick_labels: null,
   table: null,
   image_png: null,
   image_alt: null,
@@ -229,7 +294,7 @@ export const errorResult: AnalysisResult = {
 // ── aggregate responses ────────────────────────────────────────────────────
 
 export const analysesListResponse: AnalysesListResponse = {
-  analyses: [metricsMeta, chartMeta, heatmapMeta, errorMeta],
+  analyses: [metricsMeta, chartMeta, hbarMeta, heatmapMeta, errorMeta],
   import_problems: [],
 }
 
@@ -243,6 +308,7 @@ export const agenciesResponse: AgenciesResponse = {
 export const RESULTS_BY_NAME: Record<string, AnalysisResult> = {
   [METRICS_NAME]: metricsResult,
   [CHART_NAME]: chartResult,
+  [HBAR_NAME]: hbarResult,
   [HEATMAP_NAME]: heatmapResult,
   [ERROR_NAME]: errorResult,
 }

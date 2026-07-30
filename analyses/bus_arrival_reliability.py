@@ -18,6 +18,8 @@ import datetime
 import warnings
 from typing import Any, Callable
 
+import pandas as pd
+
 from bus_times import (
     aggregate_segments,
     elapsed_profiles,
@@ -32,7 +34,17 @@ from bus_times import (
 )
 from bus_times.config import DEFAULT_LAG_DAYS, DEFAULT_MIN_SAMPLES
 
-from openbus_hack import AnalysisRequest, OptionSpec, analysis, heatmap, image
+from openbus_hack import (
+    AnalysisRequest,
+    AnalysisResult,
+    OptionSpec,
+    Point,
+    Series,
+    analysis,
+    bar_chart,
+    heatmap,
+    image,
+)
 from openbus_hack.diskcache import cached
 
 _INPUTS = ["lines", "operators", "dates"]
@@ -148,6 +160,115 @@ def run_segments(req: AnalysisRequest):
             _CREDIT,
         ],
     )
+
+
+@analysis(
+    name="bus-segment-reliability-live",
+    title="Where the timetable is optimistic (interactive)",
+    description="Same segment-by-segment view as the static version, returned as raw "
+                "data and drawn in the browser — hover a bar for its exact minutes.",
+    author="noamf2001",
+    tags=["reliability", "punctuality", "gps", "interactive"],
+    inputs=_INPUTS,
+    options=_OPTIONS,
+)
+def run_segments_live(req: AnalysisRequest):
+    line, _stop_events, ride_segments, subtitle = _fetch(req)
+    aggregated = aggregate_segments(ride_segments, DEFAULT_MIN_SAMPLES).sort_values("segment_index")
+    labels = [f"{r.from_name} ← {r.to_name}" for r in aggregated.itertuples()]
+    # Long, so a plain bar_chart() call needs pandas anyway — build the long-format
+    # frame it expects: one row per (segment, {Actual, Planned}).
+    long = pd.DataFrame({
+        "segment": [*labels, *labels],
+        "kind": ["Actual (median)"] * len(aggregated) + ["Planned"] * len(aggregated),
+        "minutes": [*(aggregated["actual_median_s"] / 60), *(aggregated["planned_duration_s"] / 60)],
+    })
+    weak = int((~aggregated["is_reliable"]).sum())
+    notes = [quality_summary(aggregated), _CREDIT]
+    if weak:
+        notes.insert(1, f"{weak} of {len(aggregated)} segments rest on too little data — shown "
+                        "anyway, since a missing bar reads as 'route doesn't exist' rather than "
+                        "'not enough evidence'.")
+    return bar_chart(
+        long, x="segment", y="minutes", series="kind", horizontal=True,
+        title="Where the timetable is optimistic",
+        subtitle=f"{line.label} · {subtitle}",
+        x_label="segment", y_label="minutes",
+        notes=notes,
+    )
+
+
+@analysis(
+    name="bus-marey-diagram-live",
+    title="Where the bus loses time (interactive)",
+    description="Same time-space diagram as the static version, returned as raw data "
+                "and drawn in the browser — hover to see how many rides pass a point "
+                "and where the schedule says they should be.",
+    author="noamf2001",
+    tags=["reliability", "punctuality", "gps", "interactive"],
+    inputs=_INPUTS,
+    options=_OPTIONS,
+)
+def run_marey_live(req: AnalysisRequest):
+    line, stop_events, _ride_segments, subtitle = _fetch(req)
+    actual, planned = elapsed_profiles(stop_events)
+    coverage = stop_coverage(stop_events)
+
+    planned = planned.sort_values("stop_sequence")
+    y_tick_labels = planned["stop_name"].tolist()
+
+    # Same cap the static chart uses (plot_marey's own max_rides default) — past
+    # ~60 overlapping trajectories the fan turns into a solid block and every
+    # extra ride costs payload without adding anything readable.
+    max_rides = 60
+    ride_ids = actual["siri_ride_id"].drop_duplicates().to_numpy()
+    if len(ride_ids) > max_rides:
+        idx = [round(i) for i in _linspace(0, len(ride_ids) - 1, max_rides)]
+        ride_ids = ride_ids[idx]
+
+    series = []
+    for rid in ride_ids:
+        ride = actual[actual["siri_ride_id"] == rid].sort_values("stop_sequence")
+        series.append(Series(
+            name=f"ride_{rid}",
+            points=[Point(x=float(r.elapsed_min), y=float(r.stop_sequence))
+                    for r in ride.itertuples() if pd.notna(r.elapsed_min)],
+        ))
+    series.append(Series(
+        name="Planned",
+        emphasis=True,
+        points=[Point(x=float(r.elapsed_min), y=float(r.stop_sequence))
+                for r in planned.itertuples()],
+    ))
+
+    weak_stops = coverage[coverage["coverage"] < 0.5]
+    notes = [
+        "Each faint line is one sampled ride; the bold dashed line is the schedule. "
+        "Steep = moving, flat = stuck, and the width of the fan is the route's "
+        "unreliability.",
+        _CREDIT,
+    ]
+    if len(weak_stops):
+        names = ", ".join(weak_stops["stop_name"].head(5))
+        more = f" (+{len(weak_stops) - 5} more)" if len(weak_stops) > 5 else ""
+        notes.insert(1, f"GPS rarely resolved {len(weak_stops)} stop(s), incl. {names}{more} — "
+                        "trajectories through them are interpolation more than measurement.")
+
+    return AnalysisResult(
+        kind="chart", chart_type="trajectories", series=series,
+        title="Where the bus loses time",
+        subtitle=f"{line.label} · {subtitle}",
+        x_label="elapsed minutes", y_label=None,
+        y_tick_labels=y_tick_labels,
+        notes=notes,
+    ).ensure_table()
+
+
+def _linspace(start: float, stop: float, num: int) -> list[float]:
+    if num <= 1:
+        return [start]
+    step = (stop - start) / (num - 1)
+    return [start + step * i for i in range(num)]
 
 
 @analysis(

@@ -23,7 +23,7 @@ import {
 
 import { useState } from 'react'
 
-import { fmtNum, seriesColor, type AnalysisResult, type Series } from './api'
+import { fmtNum, seriesColor, type AnalysisResult, type ChartType, type Series } from './api'
 
 const H = 340
 
@@ -55,6 +55,8 @@ function toRows(series: Series[]): Row[] {
 
 // Dates render as e.g. "2026-07-18" — the same trim the old chart used.
 const tickLabel = (v: string) => (v.length > 11 ? v.slice(5) : v)
+const ROW_LABEL_W = 200
+const rowLabel = (v: string) => (v.length > 28 ? `${v.slice(0, 27)}…` : v)
 
 function ChartTooltip({
   active,
@@ -82,7 +84,30 @@ function ChartTooltip({
   )
 }
 
-function ChartLegend({ series }: { series: Series[] }) {
+function ChartLegend({ series, chartType }: { series: Series[]; chartType: ChartType }) {
+  if (chartType === 'trajectories') {
+    // A legend entry per ride would be noise, not information — only the
+    // emphasized (planned) reference line gets one, plus a plain count.
+    const emphasis = series.filter((s) => s.emphasis)
+    const rides = series.length - emphasis.length
+    if (!emphasis.length && !rides) return null
+    return (
+      <div className="legend">
+        {emphasis.map((s) => (
+          <span key={s.name} className="legend-item auto-dir">
+            <i className="swatch" style={{ background: 'var(--ink)' }} />
+            {s.name}
+          </span>
+        ))}
+        {rides > 0 && (
+          <span className="legend-item">
+            <i className="swatch" style={{ background: 'var(--s1)', opacity: 0.4 }} />
+            {rides} sampled ride{rides === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+    )
+  }
   if (series.length < 2) return null
   return (
     <div className="legend">
@@ -92,6 +117,39 @@ function ChartLegend({ series }: { series: Series[] }) {
           {s.name}
         </span>
       ))}
+    </div>
+  )
+}
+
+function TrajectoryTooltip({
+  active,
+  label,
+  payload,
+  yTickLabels,
+}: {
+  active?: boolean
+  label?: string | number
+  payload?: { name?: string; value?: number | null }[]
+  yTickLabels: string[]
+}) {
+  if (!active || !payload?.length) return null
+  const planned = payload.find((p) => p.name === 'Planned')
+  const rides = payload.filter(
+    (p) => p.name !== 'Planned' && p.value !== null && p.value !== undefined,
+  ).length
+  return (
+    <div className="tooltip" style={{ position: 'static' }}>
+      <div className="tt-x">{fmtNum(Number(label))} min elapsed</div>
+      {planned?.value != null && (
+        <div className="tt-row">
+          <span>scheduled position</span>
+          <b className="auto-dir">{yTickLabels[Math.round(planned.value)] ?? '—'}</b>
+        </div>
+      )}
+      <div className="tt-row">
+        <span>rides passing here</span>
+        <b>{rides}</b>
+      </div>
     </div>
   )
 }
@@ -111,10 +169,27 @@ export function Chart({ result }: { result: AnalysisResult }) {
     return <p className="muted">No data to plot.</p>
   }
 
-  const rows = toRows(series)
+  const rows = chart_type === 'trajectories' ? [] : toRows(series)
   const stacked = chart_type === 'stacked_bar'
-  const grid = <CartesianGrid stroke="var(--grid)" vertical={false} strokeWidth={0.8} />
-  const xAxis = (
+  const isBar = chart_type === 'bar' || chart_type === 'stacked_bar'
+  const horizontal = isBar && result.horizontal
+  // Long category labels (route/segment names) collide when rotated on the x
+  // axis; running the bars left-to-right with categories on the y axis fixes
+  // that, at the cost of needing more vertical room per row.
+  const barsH = Math.max(H, rows.length * 30 + 50)
+  // Gridlines run perpendicular to the categorical axis, whichever one that is.
+  const grid = horizontal
+    ? <CartesianGrid stroke="var(--grid)" horizontal={false} strokeWidth={0.8} />
+    : <CartesianGrid stroke="var(--grid)" vertical={false} strokeWidth={0.8} />
+  const xAxis = horizontal ? (
+    <XAxis
+      type="number"
+      tickFormatter={(v: number) => fmtNum(v)}
+      tick={{ fontSize: 9.5, fill: 'var(--muted)' }}
+      axisLine={{ stroke: 'var(--grid)' }}
+      tickLine={false}
+    />
+  ) : (
     <XAxis
       dataKey="x"
       tickFormatter={tickLabel}
@@ -124,7 +199,19 @@ export function Chart({ result }: { result: AnalysisResult }) {
       minTickGap={24}
     />
   )
-  const yAxis = (
+  const yAxis = horizontal ? (
+    <YAxis
+      type="category"
+      dataKey="x"
+      tickFormatter={rowLabel}
+      tick={{ fontSize: 10.5, fill: 'var(--ink-2)' }}
+      width={ROW_LABEL_W}
+      axisLine={false}
+      tickLine={false}
+      interval={0}
+      className="auto-dir"
+    />
+  ) : (
     <YAxis
       tickFormatter={(v: number) => fmtNum(v)}
       tick={{ fontSize: 9.5, fill: 'var(--muted)' }}
@@ -188,6 +275,82 @@ export function Chart({ result }: { result: AnalysisResult }) {
           ))}
         </LineChart>
       )
+  } else if (chart_type === 'trajectories') {
+    // Many individual-ride lines (no shared x domain — each ride's elapsed
+    // time is its own) plus one bold "Planned" reference. Each Line supplies
+    // its own `data`, so there's no shared `rows` table here.
+    const yLabels = result.y_tick_labels ?? []
+    const faint = series.filter((s) => !s.emphasis)
+    const emphasis = series.filter((s) => s.emphasis)
+    const trajH = Math.max(H, yLabels.length * 22 + 60)
+    plot = (
+      <LineChart width={w} height={trajH}>
+        <CartesianGrid stroke="var(--grid)" vertical={false} strokeWidth={0.8} />
+        <XAxis
+          type="number"
+          dataKey="x"
+          tick={{ fontSize: 9.5, fill: 'var(--muted)' }}
+          axisLine={{ stroke: 'var(--grid)' }}
+          tickLine={false}
+          label={
+            result.x_label
+              ? { value: result.x_label, position: 'insideBottom', offset: -6,
+                  fontSize: 10.5, fill: 'var(--muted)' }
+              : undefined
+          }
+        />
+        <YAxis
+          type="number"
+          dataKey="y"
+          domain={[0, Math.max(1, yLabels.length - 1)]}
+          ticks={yLabels.map((_, i) => i)}
+          reversed
+          tickFormatter={(v: number) => rowLabel(yLabels[Math.round(v)] ?? '')}
+          tick={{ fontSize: 10, fill: 'var(--ink-2)' }}
+          width={ROW_LABEL_W}
+          axisLine={false}
+          tickLine={false}
+          interval={0}
+          className="auto-dir"
+        />
+        <Tooltip
+          content={<TrajectoryTooltip yTickLabels={yLabels} />}
+          cursor={{ stroke: 'var(--axis)', strokeWidth: 1 }}
+          wrapperStyle={{ pointerEvents: 'none' }}
+        />
+        {faint.map((s) => (
+          <Line
+            key={s.name}
+            type="linear"
+            data={s.points.map((p) => ({ x: p.x, y: p.y }))}
+            dataKey="y"
+            name={s.name}
+            stroke="var(--s1)"
+            strokeOpacity={0.16}
+            strokeWidth={1.3}
+            dot={false}
+            legendType="none"
+            connectNulls
+            isAnimationActive={false}
+          />
+        ))}
+        {emphasis.map((s) => (
+          <Line
+            key={s.name}
+            type="linear"
+            data={s.points.map((p) => ({ x: p.x, y: p.y }))}
+            dataKey="y"
+            name={s.name}
+            stroke="var(--ink)"
+            strokeWidth={2.5}
+            strokeDasharray="6 4"
+            dot={false}
+            connectNulls
+            isAnimationActive={false}
+          />
+        ))}
+      </LineChart>
+    )
   } else if (chart_type === 'scatter') {
     plot = (
       <ScatterChart width={w} height={H}>
@@ -210,7 +373,14 @@ export function Chart({ result }: { result: AnalysisResult }) {
   } else {
     // bar / stacked_bar
     plot = (
-      <BarChart data={rows} width={w} height={H} barGap={2} barCategoryGap="28%">
+      <BarChart
+        data={rows}
+        width={w}
+        height={horizontal ? barsH : H}
+        layout={horizontal ? 'vertical' : 'horizontal'}
+        barGap={2}
+        barCategoryGap="28%"
+      >
         {grid}
         {xAxis}
         {yAxis}
@@ -232,7 +402,7 @@ export function Chart({ result }: { result: AnalysisResult }) {
 
   return (
     <div ref={measure} style={{ minWidth: 0 }}>
-      <ChartLegend series={series} />
+      <ChartLegend series={series} chartType={chart_type} />
       {plot}
       {result.y_label && (
         <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
