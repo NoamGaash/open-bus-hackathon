@@ -128,6 +128,12 @@ class Series(BaseModel):
     # is drawn bold and legended; the rest share one muted, unlegended color —
     # a legend entry per ride would be noise, not information.
     emphasis: bool = False
+    # Dashes an emphasized line. Two emphasized series on one chart (a planned
+    # reference and a measured average) need to be told apart by more than
+    # color, since both are bold.
+    dashed: bool = False
+    # Overrides the renderer's default color for an emphasized series.
+    color: str | None = None
 
 
 class Table(BaseModel):

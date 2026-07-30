@@ -45,6 +45,10 @@ export interface Series {
   points: Point[]
   /** chart_type "trajectories" only: bold + legended vs. faint + unlegended. */
   emphasis: boolean
+  /** Dashes an emphasized line, so two bold series stay distinguishable. */
+  dashed: boolean
+  /** Overrides the renderer's default color for an emphasized series. */
+  color: string | null
 }
 export interface Table {
   columns: string[]

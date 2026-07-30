@@ -46,7 +46,7 @@ const GROUPS: RepoGroup[] = [
       },
       {
         path: 'open-bus-stride-client-main/notebooks/compare_gtfs_siri_average.ipynb',
-        builtInto: 'Not yet ported — multi-day averaged stringline chart + GPS-weighted map, same coverage-matching idea as siri_coverage.py',
+        builtInto: 'analyses/schedule_adherence_average.py — the day-to-day stringline AND the planned-vs-measured map, both client-rendered',
       },
       {
         path: 'open-bus-stride-client-main/notebooks/compare gtfs planned vs siri actual.ipynb',
