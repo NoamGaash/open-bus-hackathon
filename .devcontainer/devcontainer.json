@@ -11,7 +11,10 @@
     },
     "ghcr.io/devcontainers/features/git:1": {
       "version": "os-provided"
-    }
+    },
+    // Claude Code CLI + the VS Code extension. The :1.0 tag pins the feature's
+    // install script, not the CLI version — it installs the latest and self-updates.
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
 
   // Ports the stack uses. Vite is the one you actually look at.
@@ -65,15 +68,26 @@
 
   "remoteUser": "vscode",
 
+  "containerEnv": {
+    // Claude Code keeps its OAuth account and per-project trust in ~/.claude.json,
+    // which lives OUTSIDE ~/.claude — so mounting the volume alone would still log
+    // you out on every rebuild. Pointing CLAUDE_CONFIG_DIR at the volume puts both
+    // inside it, and your login survives.
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+
   "remoteEnv": {
     "PYTHONPATH": "${containerWorkspaceFolder}",
     // Vite must bind 0.0.0.0 to be reachable through the port forward.
     "HOST": "0.0.0.0"
   },
 
-  // Keep the pip/npm/uv caches warm across rebuilds.
+  // Keep caches and the Claude login warm across rebuilds.
   "mounts": [
     "source=openbus-hack-uv-cache,target=/home/vscode/.cache/uv,type=volume",
-    "source=openbus-hack-npm-cache,target=/home/vscode/.npm,type=volume"
+    "source=openbus-hack-npm-cache,target=/home/vscode/.npm,type=volume",
+    // ${devcontainerId} scopes the login to this repo instead of sharing one
+    // credential volume across every project on the machine.
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
   ]
 }

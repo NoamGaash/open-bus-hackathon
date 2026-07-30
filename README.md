@@ -37,6 +37,15 @@ That's it. Three things start:
 > [GitHub Codespace](https://codespaces.new/NoamGaash/open-bus-hackathon) instead —
 > same container, nothing to install.
 
+### Claude Code is in the container
+
+Run `claude` in any container terminal. It sees the same Python env, the same data
+client, and the same running services you do — so "why is my analysis returning an
+empty frame?" is a question it can actually investigate.
+
+First run asks you to sign in. That login is stored in a Docker volume scoped to
+this repo, so **you only do it once** — it survives container rebuilds.
+
 ---
 
 ## Add your analysis

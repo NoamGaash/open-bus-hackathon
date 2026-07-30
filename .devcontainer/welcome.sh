@@ -12,6 +12,9 @@ cat <<'BANNER'
   │  ./dev list         show all registered analyses                │
   │  ./dev save "msg"   commit + push everything you've done        │
   ├─────────────────────────────────────────────────────────────────┤
+  │  claude             Claude Code, in here with the whole stack   │
+  │                     (first run asks you to sign in — once)      │
+  ├─────────────────────────────────────────────────────────────────┤
   │  Your scratch space:  workspace/<your-name>/                    │
   │  Your analysis goes in:  analyses/<something>.py                │
   │                                                                 │
