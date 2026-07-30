@@ -110,6 +110,10 @@ class Metric(BaseModel):
 class Point(BaseModel):
     x: str | float
     y: float | None = None
+    # Optional error-bar range around y (e.g. a p25/p75 spread around a
+    # median). Set both or neither.
+    low: float | None = None
+    high: float | None = None
 
 
 class Series(BaseModel):
@@ -196,6 +200,10 @@ class AnalysisResult(BaseModel):
     # 0..N-1 (e.g. stop names), since y there is a stop *position*, not a
     # plain number.
     y_tick_labels: list[str] | None = None
+    # Parallel to y_tick_labels: True where that tick's own measurement is
+    # weak (e.g. a stop the GPS rarely resolved) — drawn dimmed/italic rather
+    # than looking as trustworthy as a well-covered one.
+    y_tick_weak: list[bool] | None = None
 
     # kind="table", and the mandatory relief view for every chart
     # (light-mode palette has sub-3:1 slots, so a table view is required).
@@ -262,7 +270,8 @@ def metrics(*items: Metric | tuple[str, Any] | dict[str, Any], title: str | None
                           notes=notes or [])
 
 
-def _series_from(data: Any, x: str | None, y: str | None, series: str | None) -> list[Series]:
+def _series_from(data: Any, x: str | None, y: str | None, series: str | None,
+                 low: str | None = None, high: str | None = None) -> list[Series]:
     """Build Series from a DataFrame, a dict of {name: {x: y}}, or a list of Series."""
     if isinstance(data, list) and (not data or isinstance(data[0], Series)):
         return list(data)
@@ -275,20 +284,20 @@ def _series_from(data: Any, x: str | None, y: str | None, series: str | None) ->
     df = data
     if x is None or y is None:
         raise ValueError("line_chart/bar_chart need x= and y= column names for a DataFrame")
+
+    def _point(r: Any) -> Point:
+        return Point(
+            x=_jsonable_x(r[x]), y=_nan_to_none(r[y]),
+            low=_nan_to_none(r[low]) if low else None,
+            high=_nan_to_none(r[high]) if high else None,
+        )
+
     if series:
         return [
-            Series(
-                name=str(name),
-                points=[Point(x=_jsonable_x(r[x]), y=_nan_to_none(r[y])) for _, r in grp.iterrows()],
-            )
+            Series(name=str(name), points=[_point(r) for _, r in grp.iterrows()])
             for name, grp in df.groupby(series, sort=False)
         ]
-    return [
-        Series(
-            name=str(y),
-            points=[Point(x=_jsonable_x(r[x]), y=_nan_to_none(r[y])) for _, r in df.iterrows()],
-        )
-    ]
+    return [Series(name=str(y), points=[_point(r) for _, r in df.iterrows()])]
 
 
 def _jsonable_x(v: Any) -> str | float:
@@ -320,14 +329,18 @@ def line_chart(data: Any, x: str | None = None, y: str | None = None, series: st
 
 
 def bar_chart(data: Any, x: str | None = None, y: str | None = None, series: str | None = None,
-              *, stacked: bool = False, horizontal: bool = False, title: str | None = None,
-              subtitle: str | None = None, x_label: str | None = None, y_label: str | None = None,
+              *, low: str | None = None, high: str | None = None, stacked: bool = False,
+              horizontal: bool = False, title: str | None = None, subtitle: str | None = None,
+              x_label: str | None = None, y_label: str | None = None,
               notes: list[str] | None = None) -> AnalysisResult:
     """A bar chart. ``stacked=True`` for parts-of-a-whole, ``horizontal=True`` when
-    category labels are long enough that rotated x-axis text would collide."""
+    category labels are long enough that rotated x-axis text would collide.
+    ``low=``/``high=`` column names add an error-bar range around each bar
+    (e.g. a p25/p75 spread around a median) — leave a row's low/high as NaN to
+    skip the whisker for just that bar."""
     return AnalysisResult(
         kind="chart", chart_type="stacked_bar" if stacked else "bar",
-        series=_series_from(data, x, y, series), horizontal=horizontal,
+        series=_series_from(data, x, y, series, low, high), horizontal=horizontal,
         title=title, subtitle=subtitle, x_label=x_label or x, y_label=y_label or y,
         x_is_temporal=False, notes=notes or [],
     ).ensure_table()

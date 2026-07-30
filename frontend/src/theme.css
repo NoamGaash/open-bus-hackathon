@@ -477,3 +477,72 @@ img.chart-img {
 .tooltip b {
   font-variant-numeric: tabular-nums;
 }
+
+/* ── source material appendix ── */
+.source-material {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.source-material h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.source-material > p {
+  font-size: 12.5px;
+  margin: 0 0 18px;
+  max-width: 70ch;
+}
+.source-group {
+  margin-bottom: 18px;
+}
+.source-group h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.source-group h3 a {
+  color: var(--ink);
+}
+.source-file {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: var(--surface);
+}
+.source-file summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12px;
+  list-style: revert;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+.source-file summary code {
+  font-weight: 600;
+}
+.source-file-body {
+  padding: 0 12px 12px;
+}
+.source-cell {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+.source-cell-code {
+  background: var(--plane);
+  color: var(--ink-2);
+}
+.source-cell-markdown,
+.source-cell-text {
+  background: transparent;
+  color: var(--muted);
+  font-style: italic;
+  white-space: pre-wrap;
+}

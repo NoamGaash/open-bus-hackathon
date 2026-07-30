@@ -36,6 +36,9 @@ export interface Metric {
 export interface Point {
   x: string | number
   y: number | null
+  /** Optional error-bar range around y (e.g. a p25/p75 spread). */
+  low: number | null
+  high: number | null
 }
 export interface Series {
   name: string
@@ -84,6 +87,8 @@ export interface AnalysisResult {
   horizontal: boolean
   /** chart_type "trajectories" only: labels for integer y ticks 0..N-1. */
   y_tick_labels: string[] | null
+  /** Parallel to y_tick_labels: true where that tick's own data is weak. */
+  y_tick_weak: boolean[] | null
   table: Table | null
   image_png: string | null
   image_alt: string | null

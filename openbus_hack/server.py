@@ -8,6 +8,7 @@ Endpoints
     POST /api/analyses/{name}/run       run one, returns an AnalysisResult
     GET  /api/agencies                  operator list, for the picker
     GET  /api/lines?q=                  line short-name suggestions, for the picker
+    GET  /api/source-material?repo=&branch=&path=   one teammate's source file, parsed
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from . import source_material as source_material_module
 from . import stride
 from .contract import AnalysisRequest, AnalysisResult
 from .registry import discover, registry, run
@@ -128,6 +130,15 @@ def lines(q: str = "", limit: int = 40) -> dict[str, Any]:
         return {"lines": names[:limit]}
     except Exception as exc:  # noqa: BLE001
         return {"lines": [], "error": f"{type(exc).__name__}: {exc}"}
+
+
+@app.get("/api/source-material")
+def source_material(repo: str, branch: str, path: str) -> dict[str, Any]:
+    """One teammate's source file (script or notebook), for the dashboard's
+    "Source material" reviewer appendix. See openbus_hack/source_material.py —
+    both repos this currently serves are private, so this proxies through the
+    `gh` CLI's auth rather than have the browser hit GitHub directly."""
+    return source_material_module.fetch_source_file(repo, branch, path)
 
 
 def main() -> None:

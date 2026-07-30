@@ -64,6 +64,7 @@ export const metricsResult: AnalysisResult = {
   x_is_temporal: false,
   horizontal: false,
   y_tick_labels: null,
+  y_tick_weak: null,
   table: null,
   image_png: null,
   image_alt: null,
@@ -94,20 +95,20 @@ export const chartResult: AnalysisResult = {
     {
       name: 'Line 480',
       points: [
-        { x: '2026-07-23', y: 10 },
-        { x: '2026-07-24', y: 12 },
-        { x: '2026-07-25', y: null },
-        { x: '2026-07-26', y: 15 },
+        { x: '2026-07-23', y: 10, low: null, high: null },
+        { x: '2026-07-24', y: 12, low: null, high: null },
+        { x: '2026-07-25', y: null, low: null, high: null },
+        { x: '2026-07-26', y: 15, low: null, high: null },
       ],
       emphasis: false,
     },
     {
       name: 'Line 1',
       points: [
-        { x: '2026-07-23', y: 5 },
-        { x: '2026-07-24', y: 7 },
-        { x: '2026-07-25', y: 6 },
-        { x: '2026-07-26', y: 9 },
+        { x: '2026-07-23', y: 5, low: null, high: null },
+        { x: '2026-07-24', y: 7, low: null, high: null },
+        { x: '2026-07-25', y: 6, low: null, high: null },
+        { x: '2026-07-26', y: 9, low: null, high: null },
       ],
       emphasis: false,
     },
@@ -117,6 +118,7 @@ export const chartResult: AnalysisResult = {
   x_is_temporal: true,
   horizontal: false,
   y_tick_labels: null,
+  y_tick_weak: null,
   table: {
     columns: ['Date', 'Line 480', 'Line 1'],
     rows: [
@@ -157,6 +159,7 @@ export const heatmapResult: AnalysisResult = {
   x_is_temporal: false,
   horizontal: false,
   y_tick_labels: null,
+  y_tick_weak: null,
   table: {
     columns: ['Stop', '07:00', '08:00', '09:00'],
     rows: [
@@ -217,16 +220,16 @@ export const hbarResult: AnalysisResult = {
     {
       name: 'Actual (median)',
       points: [
-        { x: 'Central Station ← North Terminal', y: 3.2 },
-        { x: 'North Terminal ← Market Square', y: 1.8 },
+        { x: 'Central Station ← North Terminal', y: 3.2, low: null, high: null },
+        { x: 'North Terminal ← Market Square', y: 1.8, low: null, high: null },
       ],
       emphasis: false,
     },
     {
       name: 'Planned',
       points: [
-        { x: 'Central Station ← North Terminal', y: 2.5 },
-        { x: 'North Terminal ← Market Square', y: 2.0 },
+        { x: 'Central Station ← North Terminal', y: 2.5, low: null, high: null },
+        { x: 'North Terminal ← Market Square', y: 2.0, low: null, high: null },
       ],
       emphasis: false,
     },
@@ -236,6 +239,7 @@ export const hbarResult: AnalysisResult = {
   x_is_temporal: false,
   horizontal: true,
   y_tick_labels: null,
+  y_tick_weak: null,
   table: {
     columns: ['segment', 'Actual (median)', 'Planned'],
     rows: [
@@ -277,6 +281,7 @@ export const errorResult: AnalysisResult = {
   x_is_temporal: false,
   horizontal: false,
   y_tick_labels: null,
+  y_tick_weak: null,
   table: null,
   image_png: null,
   image_alt: null,

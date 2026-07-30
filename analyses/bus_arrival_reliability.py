@@ -4,19 +4,23 @@ branch, pulled in as a dependency in pyproject.toml).
 
 The Stride API doesn't serve actual arrival times — they're derived here from GPS
 pings interpolated against each stop, accurate to about ±30s. Because of that, every
-chart marks its own weak spots (hatching, ride counts, coverage %) instead of looking
+chart marks its own weak spots (hatching, ride counts, coverage) instead of looking
 uniformly confident. See the upstream README for the full method and its limits.
 
-All three charts share one fetch (`_load`, memoized): resolving a line and pulling its
-timetable + sampled GPS pings costs 1-2 minutes, and the dashboard's global filter bar
-means all three cards usually run with identical parameters.
+All charts here are client-rendered (raw data over the wire, drawn in the browser) —
+the upstream package's own matplotlib plotting functions (plot_segment_times,
+plot_marey, plot_segment_hour_heatmap) are intentionally unused; this module owns
+presentation via openbus_hack.contract instead.
+
+All three charts share one fetch (`_load`, disk-cached and single-flight): resolving
+a line and pulling its timetable + sampled GPS pings costs ~1-2 minutes, and the
+dashboard's global filter bar means all three cards usually run with identical
+parameters.
 """
 
 from __future__ import annotations
 
 import datetime
-import warnings
-from typing import Any, Callable
 
 import pandas as pd
 
@@ -24,9 +28,6 @@ from bus_times import (
     aggregate_segments,
     elapsed_profiles,
     load_line_data,
-    plot_marey,
-    plot_segment_hour_heatmap,
-    plot_segment_times,
     quality_summary,
     resolve_line,
     segment_hour_matrix,
@@ -43,7 +44,6 @@ from openbus_hack import (
     analysis,
     bar_chart,
     heatmap,
-    image,
 )
 from openbus_hack.diskcache import cached
 
@@ -67,6 +67,9 @@ _OPTIONS = [
 ]
 
 _CREDIT = "Analysis by noamf2001 (github.com/noamf2001/PublicTransportHackathon)."
+# Below this per-stop GPS match rate, a stop's own axis label is drawn dimmed/italic
+# on the Marey chart — same threshold plot_marey's own min_coverage default used.
+_WEAK_COVERAGE = 0.5
 
 
 def _window(req: AnalysisRequest) -> tuple[datetime.date, datetime.date]:
@@ -119,78 +122,48 @@ def _fetch(req: AnalysisRequest):
     )
 
 
-def _render(plot: Callable[[], Any]) -> Any:
-    """Call a bus_times plot_* function with its Hebrew-glyph-fallback spam silenced.
-
-    Titles/subtitles mix Hebrew with Latin digits and punctuation; matplotlib's
-    HarfBuzz text layout warns once per *(glyph, call-site)* rather than once per
-    process (stacklevel varies through tight_layout), so a single render can emit
-    hundreds of "Glyph N missing from font(s) Noto Sans Hebrew" warnings. The glyph
-    still renders correctly via fallback — this is pure warning-machinery overhead
-    that was pinning the dev server's CPU under concurrent chart requests.
-    """
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=UserWarning, message=r"Glyph \d+ .*missing from font")
-        return plot()
-
-
 @analysis(
     name="bus-segment-reliability",
     title="Where the timetable is optimistic",
-    description="Median measured travel time per stop-to-stop segment, against the "
-                "planned duration. Where the bar overshoots the marker, the schedule "
-                "is optimistic about that stretch.",
-    author="noamf2001",
-    tags=["reliability", "punctuality", "gps"],
-    inputs=_INPUTS,
-    options=_OPTIONS,
-)
-def run_segments(req: AnalysisRequest):
-    line, _stop_events, ride_segments, subtitle = _fetch(req)
-    aggregated = aggregate_segments(ride_segments, DEFAULT_MIN_SAMPLES)
-    fig = _render(lambda: plot_segment_times(aggregated, line.label, subtitle))
-    return image(
-        fig,
-        title="Where the timetable is optimistic",
-        alt=f"Segment travel times for {line.label}",
-        notes=[
-            quality_summary(aggregated),
-            "Hatched bars are shaky, not wrong — too few rides, patchy coverage, or "
-            "coarse GPS timing. The number beside each bar is the ride count behind it.",
-            _CREDIT,
-        ],
-    )
-
-
-@analysis(
-    name="bus-segment-reliability-live",
-    title="Where the timetable is optimistic (interactive)",
-    description="Same segment-by-segment view as the static version, returned as raw "
-                "data and drawn in the browser — hover a bar for its exact minutes.",
+    description="Median measured travel time per stop-to-stop segment against the "
+                "planned duration, with the interquartile spread as a whisker. Where "
+                "a bar overshoots the marker, the schedule is optimistic about that "
+                "stretch.",
     author="noamf2001",
     tags=["reliability", "punctuality", "gps", "interactive"],
     inputs=_INPUTS,
     options=_OPTIONS,
 )
-def run_segments_live(req: AnalysisRequest):
+def run_segments(req: AnalysisRequest):
     line, _stop_events, ride_segments, subtitle = _fetch(req)
     aggregated = aggregate_segments(ride_segments, DEFAULT_MIN_SAMPLES).sort_values("segment_index")
     labels = [f"{r.from_name} ← {r.to_name}" for r in aggregated.itertuples()]
-    # Long, so a plain bar_chart() call needs pandas anyway — build the long-format
-    # frame it expects: one row per (segment, {Actual, Planned}).
+
+    # Long-format frame bar_chart() expects: one row per (segment, {Actual, Planned}).
+    # Only the "Actual" rows carry a p25/p75 whisker — "Planned" is a single number,
+    # nothing to spread.
     long = pd.DataFrame({
         "segment": [*labels, *labels],
         "kind": ["Actual (median)"] * len(aggregated) + ["Planned"] * len(aggregated),
         "minutes": [*(aggregated["actual_median_s"] / 60), *(aggregated["planned_duration_s"] / 60)],
+        "p25": [*(aggregated["actual_p25_s"] / 60), *([None] * len(aggregated))],
+        "p75": [*(aggregated["actual_p75_s"] / 60), *([None] * len(aggregated))],
     })
+
     weak = int((~aggregated["is_reliable"]).sum())
-    notes = [quality_summary(aggregated), _CREDIT]
+    notes = [
+        quality_summary(aggregated),
+        "The whisker on each Actual bar is the ride-to-ride interquartile spread "
+        "(p25-p75), not a plain min-max range.",
+        _CREDIT,
+    ]
     if weak:
         notes.insert(1, f"{weak} of {len(aggregated)} segments rest on too little data — shown "
                         "anyway, since a missing bar reads as 'route doesn't exist' rather than "
                         "'not enough evidence'.")
+
     return bar_chart(
-        long, x="segment", y="minutes", series="kind", horizontal=True,
+        long, x="segment", y="minutes", series="kind", low="p25", high="p75", horizontal=True,
         title="Where the timetable is optimistic",
         subtitle=f"{line.label} · {subtitle}",
         x_label="segment", y_label="minutes",
@@ -199,25 +172,30 @@ def run_segments_live(req: AnalysisRequest):
 
 
 @analysis(
-    name="bus-marey-diagram-live",
-    title="Where the bus loses time (interactive)",
-    description="Same time-space diagram as the static version, returned as raw data "
-                "and drawn in the browser — hover to see how many rides pass a point "
-                "and where the schedule says they should be.",
+    name="bus-marey-diagram",
+    title="Where the bus loses time",
+    description="A time-space diagram: one trajectory per sampled ride against the "
+                "schedule. Steep = moving, flat = stuck, and the width of the fan is "
+                "the route's unreliability.",
     author="noamf2001",
     tags=["reliability", "punctuality", "gps", "interactive"],
     inputs=_INPUTS,
     options=_OPTIONS,
 )
-def run_marey_live(req: AnalysisRequest):
+def run_marey(req: AnalysisRequest):
     line, stop_events, _ride_segments, subtitle = _fetch(req)
     actual, planned = elapsed_profiles(stop_events)
     coverage = stop_coverage(stop_events)
 
     planned = planned.sort_values("stop_sequence")
+    coverage_by_seq = coverage.set_index("stop_sequence")["coverage"]
     y_tick_labels = planned["stop_name"].tolist()
+    y_tick_weak = [
+        bool(coverage_by_seq.get(seq, 1.0) < _WEAK_COVERAGE)
+        for seq in planned["stop_sequence"]
+    ]
 
-    # Same cap the static chart uses (plot_marey's own max_rides default) — past
+    # Same cap the static chart used (plot_marey's own max_rides default) — past
     # ~60 overlapping trajectories the fan turns into a solid block and every
     # extra ride costs payload without adding anything readable.
     max_rides = 60
@@ -241,25 +219,26 @@ def run_marey_live(req: AnalysisRequest):
                 for r in planned.itertuples()],
     ))
 
-    weak_stops = coverage[coverage["coverage"] < 0.5]
+    n_weak = sum(y_tick_weak)
     notes = [
         "Each faint line is one sampled ride; the bold dashed line is the schedule. "
         "Steep = moving, flat = stuck, and the width of the fan is the route's "
         "unreliability.",
         _CREDIT,
     ]
-    if len(weak_stops):
-        names = ", ".join(weak_stops["stop_name"].head(5))
-        more = f" (+{len(weak_stops) - 5} more)" if len(weak_stops) > 5 else ""
-        notes.insert(1, f"GPS rarely resolved {len(weak_stops)} stop(s), incl. {names}{more} — "
-                        "trajectories through them are interpolation more than measurement.")
+    if n_weak:
+        weak_names = [name for name, w in zip(y_tick_labels, y_tick_weak) if w][:5]
+        more = f" (+{n_weak - 5} more)" if n_weak > 5 else ""
+        notes.insert(1, f"Dimmed, italic stop labels ({n_weak} of them) are stops the GPS "
+                        f"rarely resolved, incl. {', '.join(weak_names)}{more} — trajectories "
+                        "through them are interpolation more than measurement.")
 
     return AnalysisResult(
         kind="chart", chart_type="trajectories", series=series,
         title="Where the bus loses time",
         subtitle=f"{line.label} · {subtitle}",
         x_label="elapsed minutes", y_label=None,
-        y_tick_labels=y_tick_labels,
+        y_tick_labels=y_tick_labels, y_tick_weak=y_tick_weak,
         notes=notes,
     ).ensure_table()
 
@@ -272,73 +251,17 @@ def _linspace(start: float, stop: float, num: int) -> list[float]:
 
 
 @analysis(
-    name="bus-marey-diagram",
-    title="Where the bus loses time",
-    description="A time-space diagram: one trajectory per sampled ride against the "
-                "schedule. Steep = moving, flat = stuck, and the width of the fan is "
-                "the route's unreliability.",
-    author="noamf2001",
-    tags=["reliability", "punctuality", "gps"],
-    inputs=_INPUTS,
-    options=_OPTIONS,
-)
-def run_marey(req: AnalysisRequest):
-    line, stop_events, _ride_segments, subtitle = _fetch(req)
-    coverage = stop_coverage(stop_events)
-    fig = _render(lambda: plot_marey(*elapsed_profiles(stop_events), line.label, subtitle,
-                                     coverage=coverage))
-    return image(
-        fig,
-        title="Where the bus loses time",
-        alt=f"Marey diagram for {line.label}",
-        notes=[
-            "Dimmed, italic stop labels marked with a % are stops the GPS rarely "
-            "resolved — trajectories through them are interpolation more than "
-            "measurement.",
-            _CREDIT,
-        ],
-    )
-
-
-@analysis(
     name="bus-hourly-heatmap",
     title="Which segments break down at rush hour",
     description="Segment × departure hour, coloured by the actual/planned duration "
-                "ratio — red ran long, blue ran quick, neutral is on schedule.",
-    author="noamf2001",
-    tags=["reliability", "punctuality", "gps"],
-    inputs=_INPUTS,
-    options=_OPTIONS,
-)
-def run_heatmap(req: AnalysisRequest):
-    line, _stop_events, ride_segments, subtitle = _fetch(req)
-    matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
-    fig = _render(lambda: plot_segment_hour_heatmap(matrix, line.label, subtitle,
-                                                    min_samples=DEFAULT_MIN_SAMPLES))
-    return image(
-        fig,
-        title="Which segments break down at rush hour",
-        alt=f"Segment/hour heatmap for {line.label}",
-        notes=[
-            "The number in each cell is its ride count: solid means enough rides, "
-            "hatched means too few, blank means no data at all — those three are "
-            "deliberately drawn differently.",
-            _CREDIT,
-        ],
-    )
-
-
-@analysis(
-    name="bus-hourly-heatmap-live",
-    title="Which segments break down at rush hour (interactive)",
-    description="The same segment × departure-hour view, returned as raw data and "
-                "drawn in the browser — hover any cell for its ratio and ride count.",
+                "ratio — red ran long, blue ran quick, neutral is on schedule. Hover "
+                "any cell for its ratio and ride count.",
     author="noamf2001",
     tags=["reliability", "punctuality", "gps", "interactive"],
     inputs=_INPUTS,
     options=_OPTIONS,
 )
-def run_heatmap_live(req: AnalysisRequest):
+def run_heatmap(req: AnalysisRequest):
     line, _stop_events, ride_segments, subtitle = _fetch(req)
     matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
     # matrix.ratio is indexed by (segment_index, from_name, to_name); the segment

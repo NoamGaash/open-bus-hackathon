@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Chart } from './Chart'
 import { Heatmap } from './Heatmap'
+import { SourceMaterial } from './SourceMaterial'
 import {
   api,
   fmtNum,
@@ -99,6 +100,8 @@ export default function App() {
           <AnalysisCard key={m.name} meta={m} filters={filters} runToken={runToken} />
         ))}
       </div>
+
+      <SourceMaterial />
     </div>
   )
 }
