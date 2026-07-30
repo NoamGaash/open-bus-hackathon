@@ -128,6 +128,30 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// The API runs each analysis in a worker thread (FastAPI's threadpool, 40 slots).
+// A dashboard of ~10 cards that all fire on load — and re-fire on every filter
+// change — can occupy every slot with minute-long analyses, at which point even
+// /api/health queues behind them and the whole server looks hung. Cap how many
+// analysis runs are in flight at once so the box stays responsive; total wall
+// time barely changes, since the slow part is upstream API calls that the
+// analyses already share through a server-side single-flight cache.
+const MAX_CONCURRENT_RUNS = 3
+let active = 0
+const waiting: (() => void)[] = []
+
+async function withRunSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (active >= MAX_CONCURRENT_RUNS) {
+    await new Promise<void>((resolve) => waiting.push(resolve))
+  }
+  active++
+  try {
+    return await fn()
+  } finally {
+    active--
+    waiting.shift()?.()
+  }
+}
+
 export const api = {
   analyses: () =>
     json<{ analyses: AnalysisMeta[]; import_problems: string[] }>('/api/analyses'),
@@ -138,11 +162,13 @@ export const api = {
     ),
 
   run: (name: string, body: RunBody) =>
-    json<AnalysisResult>(`/api/analyses/${encodeURIComponent(name)}/run`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
+    withRunSlot(() =>
+      json<AnalysisResult>(`/api/analyses/${encodeURIComponent(name)}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    ),
 }
 
 // Categorical slots, in fixed assignment order — must match theme.css / theme.py.

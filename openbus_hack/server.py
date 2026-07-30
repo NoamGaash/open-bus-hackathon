@@ -56,8 +56,13 @@ def _load_analyses() -> None:
     print(f"✔ {len(registry())} analyses registered")
 
 
+# async def, deliberately: FastAPI runs sync `def` endpoints in a worker
+# threadpool (40 slots by default). A dashboard full of slow analyses can occupy
+# every slot, and a sync health check would then queue behind them — reporting
+# the server as down exactly when you most want to know it's up. This one runs
+# on the event loop and does no blocking work, so it always answers.
 @app.get("/api/health")
-def health() -> dict[str, Any]:
+async def health() -> dict[str, Any]:
     return {
         "ok": True,
         "analyses": len(registry()),

@@ -25,11 +25,12 @@ import datetime
 import pandas as pd
 
 from bus_times import (
+    LineSpec,
     aggregate_segments,
     elapsed_profiles,
+    find_lines,
     load_line_data,
     quality_summary,
-    resolve_line,
     segment_hour_matrix,
     stop_coverage,
 )
@@ -39,6 +40,7 @@ from openbus_hack import (
     AnalysisRequest,
     AnalysisResult,
     OptionSpec,
+    metrics,
     Point,
     Series,
     analysis,
@@ -53,16 +55,18 @@ _OPTIONS = [
         key="name_contains",
         label="City / route contains",
         type="text",
-        default="תל אביב",
-        help="A line number alone is often ambiguous (multiple cities run the same "
-             "number) — this narrows it via route_long_name, e.g. a city name.",
+        default="",
+        help="A line number alone is often ambiguous (several cities run a line "
+             "'1'). Leave empty to let the card pick the busiest match and tell "
+             "you what else it could have chosen; set it (e.g. 'תל אביב') to pin "
+             "one down.",
     ),
     OptionSpec(
         key="direction",
         label="Direction",
         type="select",
-        default="1",
-        choices=["1", "2"],
+        default="",
+        choices=["", "1", "2"],
     ),
 ]
 
@@ -91,35 +95,120 @@ def _load(line_short_name: str, operator: str, name_contains: str, direction: st
     # so the first caller pays the ~80s fetch while the other two wait on its result
     # instead of repeating it — and a rehearsal re-run or dev-server reload later hits
     # disk instead of the network entirely.
-    key = (line_short_name, operator, name_contains, direction, date_from, date_to)
+    key = ("v2", line_short_name, operator, name_contains, direction, date_from, date_to)
 
     def compute():
-        line = resolve_line(
-            line_short_name, date_from, date_to,
-            agency_name=operator or None,
-            name_contains=name_contains or None,
-            direction=direction or None,
-        )
+        line, alternatives = _resolve(
+            line_short_name, operator, name_contains, direction, date_from, date_to)
+        if line is None:
+            # alternatives here is the "what does exist for this number" list.
+            return None, alternatives
         stop_events, ride_segments = load_line_data(line, date_from, date_to, verbose=False)
         rides = stop_events["siri_ride_id"].nunique()
         days = stop_events["ride_date"].nunique()
         subtitle = (f"{date_from.isoformat()}..{date_to.isoformat()} · {rides} rides over "
                     f"{days} days · arrival times derived from GPS, ±30s")
-        return line, stop_events, ride_segments, subtitle
+        return (line, stop_events, ride_segments, subtitle), alternatives
 
     return cached("bus_arrival", key, compute)
 
 
+def _resolve(line_short_name: str, operator: str, name_contains: str, direction: str,
+             date_from: datetime.date, date_to: datetime.date):
+    """Pick one route, and say what else it could have been.
+
+    bus_times.resolve_line() raises whenever a description matches zero *or*
+    several routes. That's right for a notebook, but on a dashboard it turns an
+    ordinary pick like line "1" with no operator into an error card. Here an
+    ambiguous match picks the first candidate deterministically and returns the
+    rest so the card can say what it chose and what it ignored; only a genuinely
+    empty match fails, and then with the list of routes that *do* carry that
+    number so the reader can fix their filters.
+    """
+    df = find_lines(line_short_name, date_from, date_to,
+                    agency_name=operator or None, name_contains=name_contains or None)
+    if direction and not df.empty:
+        df = df[df["route_direction"].astype(str) == str(direction)]
+
+    if df.empty:
+        # Widen back out to show what this line number actually is, if anything.
+        wide = find_lines(line_short_name, date_from, date_to)
+        return None, [
+            {"agency_name": r.agency_name, "route_long_name": r.route_long_name,
+             "route_direction": str(r.route_direction)}
+            for r in wide.head(12).itertuples()
+        ]
+
+    row = df.iloc[0]
+    line = LineSpec(
+        line_ref=int(row["line_ref"]),
+        operator_ref=int(row["operator_ref"]),
+        label=f"{row['route_short_name']} {row['route_long_name']}",
+    )
+    others = [
+        {"agency_name": r.agency_name, "route_long_name": r.route_long_name,
+         "route_direction": str(r.route_direction)}
+        for r in df.iloc[1:].head(8).itertuples()
+    ]
+    return line, others
+
+
+class NoMatch(Exception):
+    """Raised when the filters describe no route at all. Carries the routes that
+    *do* use that line number, so the card can tell the reader how to fix it."""
+
+    def __init__(self, line: str, alternatives: list[dict]):
+        self.line = line
+        self.alternatives = alternatives
+        super().__init__(f"no route matches line {line!r}")
+
+
 def _fetch(req: AnalysisRequest):
+    """Returns (line, stop_events, ride_segments, subtitle, alternatives)."""
     date_from, date_to = _window(req)
-    return _load(
+    result, alternatives = _load(
         line_short_name=req.line or "23",
-        operator=req.operator or "דן",
-        name_contains=str(req.opt("name_contains", "תל אביב") or ""),
-        direction=str(req.opt("direction", "1") or ""),
+        # Empty means "all operators" — the filter bar offers that explicitly, so
+        # defaulting to a specific agency here would quietly contradict the user.
+        operator=req.operator or "",
+        name_contains=str(req.opt("name_contains", "") or ""),
+        direction=str(req.opt("direction", "") or ""),
         date_from=date_from,
         date_to=date_to,
     )
+    if result is None:
+        raise NoMatch(req.line or "23", alternatives)
+    return (*result, alternatives)
+
+
+def _match_notes(line, alternatives: list[dict]) -> list[str]:
+    """Say which route was picked when the filters left it ambiguous — silently
+    charting one of several routes named "1" would be the worst outcome."""
+    if not alternatives:
+        return []
+    listed = "; ".join(
+        f"{a['agency_name']} · {a['route_long_name']} (dir {a['route_direction']})"
+        for a in alternatives[:4]
+    )
+    more = f" and {len(alternatives) - 4} more" if len(alternatives) > 4 else ""
+    return [f"Your filters matched {len(alternatives) + 1} routes; charting "
+            f"{line.label}. Also matched: {listed}{more}. Narrow it with the "
+            "operator picker or the 'City / route contains' box."]
+
+
+def _no_match_card(exc: "NoMatch"):
+    listed = [f"{a['agency_name']} · {a['route_long_name']} (dir {a['route_direction']})"
+              for a in exc.alternatives]
+    notes = [f"No route matches line {exc.line} with the filters you set."]
+    if listed:
+        notes.append("Routes that do use this line number: " + "; ".join(listed[:8])
+                     + (f" (+{len(listed) - 8} more)" if len(listed) > 8 else ""))
+        notes.append("Pick one of those operators, or clear the 'City / route "
+                     "contains' box and the direction.")
+    else:
+        notes.append("No route carries this number in the selected date range at "
+                     "all — try a different line or widen the dates.")
+    return metrics(("No match", 0), notes=notes)
 
 
 @analysis(
@@ -135,7 +224,10 @@ def _fetch(req: AnalysisRequest):
     options=_OPTIONS,
 )
 def run_segments(req: AnalysisRequest):
-    line, _stop_events, ride_segments, subtitle = _fetch(req)
+    try:
+        line, _stop_events, ride_segments, subtitle, alts = _fetch(req)
+    except NoMatch as exc:
+        return _no_match_card(exc)
     aggregated = aggregate_segments(ride_segments, DEFAULT_MIN_SAMPLES).sort_values("segment_index")
     labels = [f"{r.from_name} ← {r.to_name}" for r in aggregated.itertuples()]
 
@@ -161,6 +253,7 @@ def run_segments(req: AnalysisRequest):
         notes.insert(1, f"{weak} of {len(aggregated)} segments rest on too little data — shown "
                         "anyway, since a missing bar reads as 'route doesn't exist' rather than "
                         "'not enough evidence'.")
+    notes = [*_match_notes(line, alts), *notes]
 
     return bar_chart(
         long, x="segment", y="minutes", series="kind", low="p25", high="p75", horizontal=True,
@@ -183,7 +276,10 @@ def run_segments(req: AnalysisRequest):
     options=_OPTIONS,
 )
 def run_marey(req: AnalysisRequest):
-    line, stop_events, _ride_segments, subtitle = _fetch(req)
+    try:
+        line, stop_events, _ride_segments, subtitle, alts = _fetch(req)
+    except NoMatch as exc:
+        return _no_match_card(exc)
     actual, planned = elapsed_profiles(stop_events)
     coverage = stop_coverage(stop_events)
 
@@ -233,6 +329,7 @@ def run_marey(req: AnalysisRequest):
                         f"rarely resolved, incl. {', '.join(weak_names)}{more} — trajectories "
                         "through them are interpolation more than measurement.")
 
+    notes = [*_match_notes(line, alts), *notes]
     return AnalysisResult(
         kind="chart", chart_type="trajectories", series=series,
         title="Where the bus loses time",
@@ -262,7 +359,10 @@ def _linspace(start: float, stop: float, num: int) -> list[float]:
     options=_OPTIONS,
 )
 def run_heatmap(req: AnalysisRequest):
-    line, _stop_events, ride_segments, subtitle = _fetch(req)
+    try:
+        line, _stop_events, ride_segments, subtitle, alts = _fetch(req)
+    except NoMatch as exc:
+        return _no_match_card(exc)
     matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
     # matrix.ratio is indexed by (segment_index, from_name, to_name); the segment
     # pair is what a reader actually recognises, so label rows with that.
@@ -280,6 +380,7 @@ def run_heatmap(req: AnalysisRequest):
         col_axis_label="departure hour",
         value_label="actual / planned",
         notes=[
+            *_match_notes(line, alts),
             "1.00 means exactly on schedule; above that the segment ran longer than "
             "the timetable allows. Hatched cells are measured but rest on fewer than "
             f"{DEFAULT_MIN_SAMPLES} rides; empty cells had no usable ride at all.",
