@@ -172,6 +172,15 @@ export default function App() {
         </button>
         <div style={{ marginLeft: 10, display: 'flex', gap: 10 }}>
           <a
+            href="/editorial.html"
+            target="_blank"
+            rel="noreferrer"
+            className="badge"
+            style={{ textDecoration: 'none', background: 'var(--s1)', color: '#fff', borderColor: 'var(--s1)', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            📰 Data Journalism Editorial
+          </a>
+          <a
             href="/tlv-bus-speed.html"
             target="_blank"
             rel="noreferrer"
