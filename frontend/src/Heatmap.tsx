@@ -98,6 +98,15 @@ function getContinuousColor(value: number, extent: number): { bg: string; isDark
   return { bg, isDark: isDarkCell }
 }
 
+function formatDuration(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined) return ''
+  if (minutes < 1.0) {
+    const seconds = Math.round(minutes * 60)
+    return `${seconds} sec`
+  }
+  return `${fmtNum(minutes)} min`
+}
+
 export function Heatmap({ result }: { result: AnalysisResult }) {
   const hm = result.heatmap!
   const [hover, setHover] = useState<Hover | null>(null)
@@ -207,13 +216,13 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
           {hover.cell.actual !== null && hover.cell.actual !== undefined && (
             <div className="tt-row">
               <span>observed actual</span>
-              <b>{fmtNum(hover.cell.actual)} min</b>
+              <b>{formatDuration(hover.cell.actual)}</b>
             </div>
           )}
           {hover.cell.planned !== null && hover.cell.planned !== undefined && (
             <div className="tt-row">
               <span>scheduled plan</span>
-              <b>{fmtNum(hover.cell.planned)} min</b>
+              <b>{formatDuration(hover.cell.planned)}</b>
             </div>
           )}
           {hover.cell.count !== null && hover.cell.count !== undefined && (

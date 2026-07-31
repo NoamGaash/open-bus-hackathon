@@ -92,12 +92,8 @@ def run(req: AnalysisRequest):
                 notes=[f"No lines with planned rides found for operator {operator}."]
             )
 
-        # Generate horizontal bar chart using the custom matplotlib plotter
-        fig_path = plot_operator_scores(scores, operator, days=days_back)
-
-        # Read the written file directly as bytes to avoid re-rendering
-        png_bytes = fig_path.read_bytes()
-        b64_str = base64.b64encode(png_bytes).decode("ascii")
+        # Sort scores so that worst performing lines (lowest scores) are at the top
+        scores_sorted = scores.sort_values("score", ascending=True).copy()
 
         # Expose precise numbers as the relief table
         t = Table(
@@ -115,17 +111,33 @@ def run(req: AnalysisRequest):
             ],
         )
 
-        return AnalysisResult(
-            kind="image",
+        notes = [
+            "Each bar represents the fraction of days (out of last 15) with zero cancellations (lower is worse!).",
+            "Lines with zero actual GPS reports are shown with score 1.0 but hatched in draft to indicate data gaps rather than actual 100% cancellations.",
+            "Toggle 'Table view' at the top-right of the card to see exact planned, operated, and cancelled counts for each line.",
+            f"Data retrieved live from /rides_execution/list.",
+        ]
+
+        # Return primary interactive React bar chart, with fallback table and image_png
+        res = bar_chart(
+            scores_sorted,
+            x="line",
+            y="score",
+            horizontal=True,
             title=f"{operator} — Days without cancellations",
             subtitle=f"Scores for worst performing lines, last {days_back} days",
-            image_png=b64_str,
-            image_alt=f"{operator} cancellation scores",
-            table=t,
-            notes=[
-                "Each bar represents the fraction of days (out of last 15) with zero cancellations.",
-                "Hatched bars ('///') indicate lines with zero actual GPS reports, which represent data gaps rather than actual 100% cancellations.",
-                "Toggle 'Table view' at the top-right of the card to see exact planned, operated, and cancelled counts for each line.",
-                f"Data retrieved live from /rides_execution/list.",
-            ],
+            x_label="line",
+            y_label="days with zero cancellations / days scored",
+            notes=notes,
         )
+        res.table = t
+
+        try:
+            fig_path = plot_operator_scores(scores, operator, days=days_back)
+            png_bytes = fig_path.read_bytes()
+            res.image_png = base64.b64encode(png_bytes).decode("ascii")
+        except Exception as exc:
+            notes.append(f"Matplotlib render failed: {exc}")
+            res.notes = notes
+
+        return res

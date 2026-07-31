@@ -61,12 +61,12 @@ _OPTIONS = [
     OptionSpec(
         key="name_contains",
         label="City / route contains",
-        type="text",
+        type="select",
         default="",
+        choices=["", "תל אביב", "ירושלים", "חיפה", "באר שבע", "ראשון לציון", "נתניה", "פתח תקווה", "חולון", "הרצליה", "בני ברק", "רמת גן"],
         help="A line number alone is often ambiguous (several cities run a line "
-             "'1'). Leave empty to let the card pick the busiest match and tell "
-             "you what else it could have chosen; set it (e.g. 'תל אביב') to pin "
-             "one down.",
+             "'1'). Choose a city from the list to pin down a specific route variant, "
+             "or leave blank to automatically select the busiest match.",
     ),
     OptionSpec(
         key="direction",
