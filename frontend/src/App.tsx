@@ -88,8 +88,8 @@ export default function App() {
   const [loadErr, setLoadErr] = useState<string | null>(null)
   const [agencies, setAgencies] = useState<string[]>([])
   const [filters, setFilters] = useState<Filters>({
-    lines: '',
-    operators: [],
+    lines: '142',
+    operators: ['דן'],
     date_from: isoDaysAgo(8),
     date_to: isoDaysAgo(1),
   })
