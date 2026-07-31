@@ -27,6 +27,61 @@ interface Filters {
   date_to: string
 }
 
+interface PitchStep {
+  title: string
+  description: string
+  focusCard?: string
+  filters?: Partial<Filters>
+}
+
+const PITCH_STEPS: PitchStep[] = [
+  {
+    title: "🚀 Welcome: Open Bus Shared Infra Platform",
+    description: "Our hackathon platform consolidates 17 advanced transit analyses from all team members into one unified, real-time dashboard.",
+  },
+  {
+    title: "⏱️ Step 1: The Optimistic Timetable (Line 18663)",
+    description: "Look at 'Where the timetable is optimistic'. The GTFS schedule is chronically optimistic about intermediate segments, leaving no margin for traffic.",
+    focusCard: "bus-segment-reliability",
+    filters: { lines: "18663", operators: ["סופרבוס"] },
+  },
+  {
+    title: "🔥 Step 2: The Rush Hour Breakdown (Heatmap)",
+    description: "Now see 'Which segments break down at rush hour'. We map ratio delays continuously: you can see the exact segments that collapse at 08:00 AM, along with actual minutes lost.",
+    focusCard: "bus-hourly-heatmap",
+    filters: { lines: "18663", operators: ["סופרבוס"] },
+  },
+  {
+    title: "🚍 Step 3: Bus Bunching & Regularity Decay",
+    description: "As buses travel downstream, headway spacing decays into fully random, exponential Poisson arrival (CV = 1.0), leading to severe bus bunching.",
+    focusCard: "poisson-arrival-regularity",
+    filters: { lines: "18663", operators: ["סופרבוס"] },
+  },
+  {
+    title: "💸 Step 4: SLA Audits & Fineable Infractions",
+    description: "We use SIRI GPS coordinates to automatically audit SLA compliance, flagging intermediate earliness (>2 mins) and terminal lateness (>15 mins) for direct MoT penalties.",
+    focusCard: "service-violations",
+    filters: { lines: "142", operators: ["דן"] },
+  },
+  {
+    title: "🗺️ Step 5: Route Divergence Detection",
+    description: "We use geofencing algorithms to detect detours and skipped stops, mapping exactly where drivers strayed from the officially planned path.",
+    focusCard: "route-divergence-map",
+    filters: { lines: "142", operators: ["דן"] },
+  },
+  {
+    title: "📦 Step 6: Automated Cancellations Audit",
+    description: "Checking planned runs against actual telemetry, we calculate a 15-day score of clean operations. Toggle to table view to see exact planning gaps.",
+    focusCard: "days-with-no-cancellations",
+    filters: { lines: "", operators: ["סופרבוס"] },
+  },
+  {
+    title: "🌟 Step 7: From Notebook to Production",
+    description: "Scroll to the bottom: our 'Source Material' appendix fetched teammate Jupyter notebooks and static plots, presenting raw research alongside live interactive components.",
+    focusCard: "source-material",
+  }
+]
+
 export default function App() {
   const [metas, setMetas] = useState<AnalysisMeta[] | null>(null)
   const [problems, setProblems] = useState<string[]>([])
@@ -40,6 +95,7 @@ export default function App() {
   })
   // Bumped to re-run every card at once.
   const [runToken, setRunToken] = useState(0)
+  const [pitchStep, setPitchStep] = useState<number | null>(null)
 
   useEffect(() => {
     api
@@ -55,16 +111,66 @@ export default function App() {
       .catch(() => setAgencies([]))
   }, [])
 
+  // Pitch transition hook
+  useEffect(() => {
+    if (pitchStep === null) return
+    const step = PITCH_STEPS[pitchStep]
+    if (step.filters) {
+      setFilters((prev) => ({ ...prev, ...step.filters }))
+      setRunToken((t) => t + 1)
+    }
+    if (step.focusCard) {
+      const focus = step.focusCard
+      setTimeout(() => {
+        const el = document.getElementById(`card-${focus}`) || document.getElementById(focus)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('pitch-highlight')
+          setTimeout(() => el.classList.remove('pitch-highlight'), 2500)
+        }
+      }, 500)
+    }
+  }, [pitchStep])
+
   const shown = metas ?? []
 
   return (
     <div className="page">
+      {pitchStep !== null && (
+        <div className="presentation-bar">
+          <div className="pres-content">
+            <span className="badge" style={{ background: 'var(--s2)', color: '#fff', marginRight: 10 }}>PITCH MODE</span>
+            <strong className="pres-title">{PITCH_STEPS[pitchStep].title}</strong>
+            <p className="pres-desc">{PITCH_STEPS[pitchStep].description}</p>
+          </div>
+          <div className="pres-controls">
+            <button className="ghost" onClick={() => setPitchStep((s) => s! > 0 ? s! - 1 : 0)} disabled={pitchStep === 0}>
+              ◀ Prev
+            </button>
+            <span className="pres-progress">{pitchStep + 1} / {PITCH_STEPS.length}</span>
+            <button className="primary" onClick={() => setPitchStep((s) => s! < PITCH_STEPS.length - 1 ? s! + 1 : s)} disabled={pitchStep === PITCH_STEPS.length - 1}>
+              Next ▶
+            </button>
+            <button className="ghost" style={{ marginLeft: 15, color: '#f03b3b' }} onClick={() => setPitchStep(null)}>
+              ✕ Exit
+            </button>
+          </div>
+        </div>
+      )}
+
       <header className="masthead">
         <h1>Open Bus — Hackathon</h1>
         <span className="sub">
           {metas ? `${shown.length} ${shown.length === 1 ? 'analysis' : 'analyses'}` : 'loading…'}
         </span>
-        <div style={{ marginLeft: 20, display: 'flex', gap: 10 }}>
+        <button
+          onClick={() => setPitchStep(0)}
+          className="badge"
+          style={{ cursor: 'pointer', outline: 'none', background: 'var(--s2)', color: '#fff', borderColor: 'var(--s2)', display: 'flex', alignItems: 'center', gap: 4 }}
+        >
+          🖥️ Start Pitch Mode
+        </button>
+        <div style={{ marginLeft: 10, display: 'flex', gap: 10 }}>
           <a
             href="/tlv-bus-speed.html"
             target="_blank"
@@ -118,11 +224,15 @@ export default function App() {
 
       <div className="grid">
         {shown.map((m) => (
-          <AnalysisCard key={m.name} meta={m} filters={filters} runToken={runToken} />
+          <div id={`card-${m.name}`} key={m.name}>
+            <AnalysisCard meta={m} filters={filters} runToken={runToken} />
+          </div>
         ))}
       </div>
 
-      <SourceMaterial />
+      <div id="card-source-material">
+        <SourceMaterial />
+      </div>
     </div>
   )
 }
