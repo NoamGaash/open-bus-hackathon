@@ -19,6 +19,8 @@ from __future__ import annotations
 import datetime
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+
 from openbus_hack import AnalysisRequest, GeoLegend, analysis, geo, metrics, stride
 
 ISRAEL_TZ = ZoneInfo("Asia/Jerusalem")
@@ -73,7 +75,35 @@ def run(req: AnalysisRequest):
     t1 = datetime.datetime.combine(day, datetime.time(7, 0), tzinfo=ISRAEL_TZ)
     t2 = t1 + datetime.timedelta(hours=4)
 
-    pings = stride.siri_vehicle_locations(t1, t2, lines=[line], operators=[operator])
+    # Resolve the line number to a line_ref first. stride.siri_vehicle_locations'
+    # `lines=` argument maps to gtfs_route__route_short_name, which this endpoint
+    # ignores — it would hand back the whole country's pings and this card would
+    # then label some unrelated bus as line 23. Filter on siri_routes__line_ref,
+    # which the endpoint does honour.
+    routes = stride.routes(lines=[line], operators=[operator] if operator else None,
+                           date_from=day, date_to=day, limit=50)
+    if routes.empty:
+        return metrics(
+            ("No data", 0),
+            notes=[f"No GTFS route for line {line} ({operator}) on {day}."],
+        )
+    line_ref = int(routes.iloc[0]["line_ref"])
+    operator_ref = int(routes.iloc[0]["operator_ref"])
+
+    ping_rows = stride.get("/siri_vehicle_locations/list", {
+        "siri_routes__line_ref": line_ref,
+        "siri_routes__operator_ref": operator_ref,
+        "recorded_at_time_from": t1,
+        "recorded_at_time_to": t2,
+        "order_by": "recorded_at_time",
+        "limit": 15000,
+    })
+    pings = pd.DataFrame(ping_rows)
+    if not pings.empty:
+        for c in ("lat", "lon"):
+            pings[c] = pd.to_numeric(pings[c], errors="coerce")
+        pings["recorded_at_time"] = pd.to_datetime(pings["recorded_at_time"], utc=True)
+        pings = pings.dropna(subset=["lat", "lon"])
     if pings.empty:
         return metrics(
             ("No data", 0),
@@ -136,7 +166,7 @@ def run(req: AnalysisRequest):
             "the source notebook used — a purple-to-yellow jump in one spot is "
             "the bus moving fast there; a cluster of one color is it sitting still.",
             f"Picked automatically: the ride with the most GPS pings among all "
-            f"{pings['siri_ride__id'].nunique()} rides seen for this line/operator "
+            f"{pings['siri_ride__id'].nunique()} rides seen for this line "
             "in the sampled window.",
             f"{duplicates:,} duplicate ping(s) dropped before plotting — the same "
             "vehicle, instant and position reported in overlapping SIRI snapshots.",
