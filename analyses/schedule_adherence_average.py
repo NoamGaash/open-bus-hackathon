@@ -280,9 +280,10 @@ def _per_stop_elapsed(data: dict):
 
 
 _OPTIONS = [
-    OptionSpec(key="line_ref", label="Line ref", type="text", default="18663",
-               help="GTFS line_ref. The notebook's own pool of well-tracked lines: "
-                    "18663, 40499, 29099, 10208, 11603, 29620, 40089, 36716."),
+    OptionSpec(key="line_ref", label="Line ref", type="select", default="18663",
+               choices=["18663", "40499", "29099", "10208", "11603", "29620", "40089", "36716"],
+               help="GTFS line_ref. Choose from the pool of well-tracked lines, or "
+                    "use the global search filters at the top to resolve any line dynamically!"),
     OptionSpec(key="days_back", label="Days to scan", type="number", default=21,
                help="The notebook scanned 90; that's minutes of API calls. Each "
                     "scanned day costs two requests, cached after the first run."),
