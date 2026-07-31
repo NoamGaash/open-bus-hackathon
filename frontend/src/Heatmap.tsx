@@ -74,14 +74,16 @@ function getContinuousColor(value: number, extent: number): { bg: string; isDark
     return { bg: colors.mid, isDark: false }
   }
 
-  const dev = value >= 1.0 ? (value - 1.0) : (1.0 / value - 1.0)
+  // Cap value between 0.2 and 5.0 to prevent scheduling outliers from washing out the color scale
+  const capped_value = Math.max(0.2, Math.min(5.0, value))
+  const dev = capped_value >= 1.0 ? (capped_value - 1.0) : (1.0 / capped_value - 1.0)
   if (dev < 1e-9) {
     const colors = getThemeColors()
     return { bg: colors.mid, isDark: false }
   }
 
   const colors = getThemeColors()
-  const stops = value < 1.0 ? [colors.mid, ...colors.neg] : [colors.mid, ...colors.pos]
+  const stops = capped_value < 1.0 ? [colors.mid, ...colors.neg] : [colors.mid, ...colors.pos]
 
   // Use power scaling (square root) to stretch smaller deviations, making colors stand out more clearly
   const factor = Math.pow(Math.min(1.0, dev / extent), 0.5)
@@ -106,16 +108,18 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
     return m
   }, [hm.cells])
 
-  // Scale extent: the largest deviation from 1.0, with symmetric 1/x mapping for values < 1.0
+  // Scale extent: the largest deviation from 1.0, with symmetric 1/x mapping for values < 1.0.
+  // Capped at 5.0 (max deviation of 4.0) to prevent outlier segments with tiny planned durations from washing out the rest of the heatmap.
   const extent = useMemo(() => {
     let maxDev = 0
     for (const c of hm.cells) {
       const x = c.value
       if (x === null || x === undefined || x <= 0) continue
-      const dev = x >= 1.0 ? (x - 1.0) : (1.0 / x - 1.0)
+      const capped_x = Math.max(0.2, Math.min(5.0, x))
+      const dev = capped_x >= 1.0 ? (capped_x - 1.0) : (1.0 / capped_x - 1.0)
       maxDev = Math.max(maxDev, dev)
     }
-    return maxDev || 1.0
+    return maxDev || 4.0
   }, [hm.cells])
 
   if (!hm.row_labels.length || !hm.col_labels.length) {
