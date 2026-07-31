@@ -26,6 +26,8 @@ import pandas as pd
 
 import io
 import base64
+import warnings
+from typing import Any, Callable
 from bus_times import (
     LineSpec,
     aggregate_segments,
@@ -79,6 +81,47 @@ _CREDIT = "Analysis by noamf2001 (github.com/noamf2001/PublicTransportHackathon)
 # Below this per-stop GPS match rate, a stop's own axis label is drawn dimmed/italic
 # on the Marey chart — same threshold plot_marey's own min_coverage default used.
 _WEAK_COVERAGE = 0.5
+
+
+def _static_png(cache_key: tuple, make_fig: "Callable[[], Any]") -> str | None:
+    """Render one bus_times matplotlib figure to a base64 PNG — cached, and quiet.
+
+    The static "draft plot" view is a nice extra, but it was costing more than it
+    looked. Two measured problems, both fixed here rather than by dropping the
+    feature:
+
+    * The figure is fully determined by its cache key, yet was redrawn on every
+      request — 67s on a card whose data was already warm in the cache. Now it is
+      drawn once and reused.
+    * matplotlib lays Hebrew out through HarfBuzz and warns once per
+      (glyph, call-site) rather than once per process, so a single render emits
+      thousands of "Glyph N missing from font" warnings — 8,465 in one session.
+      The glyphs render fine via fallback; it is the warning machinery that burns
+      the CPU, which is what previously made the whole API unresponsive.
+
+    Returns None on failure — a draft plot that won't draw must not take the
+    card's real chart down with it.
+    """
+
+    def compute() -> str:
+        import matplotlib
+        matplotlib.use("Agg")  # no display in the container
+        import matplotlib.pyplot as plt
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", category=UserWarning, message=r"Glyph \d+ .*missing from font")
+            fig = make_fig()
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=144, bbox_inches="tight",
+                        facecolor=fig.get_facecolor())
+            plt.close(fig)
+        return base64.b64encode(buf.getvalue()).decode("ascii")
+
+    try:
+        return cached("static_png", cache_key, compute)
+    except Exception:
+        return None
 
 
 def _window(req: AnalysisRequest) -> tuple[datetime.date, datetime.date]:
@@ -267,17 +310,10 @@ def run_segments(req: AnalysisRequest):
         x_label="segment", y_label="minutes",
         notes=notes,
     )
-    try:
-        import matplotlib.pyplot as plt
-        fig = plot_segment_times(aggregated, line.label, subtitle, mode="light", stops_on_x=False)
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=144, bbox_inches="tight", facecolor=fig.get_facecolor())
-        plt.close(fig)
-        res.image_png = base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception as exc:
-        # One plot failing to draw must not crash the whole card
-        notes.append(f"Matplotlib render failed: {exc}")
-        res.notes = notes
+    res.image_png = _static_png(
+        ("segments", line.line_ref, subtitle),
+        lambda: plot_segment_times(aggregated, line.label, subtitle, mode="light", stops_on_x=False),
+    )
     return res
 
 
@@ -355,16 +391,11 @@ def run_marey(req: AnalysisRequest):
         y_tick_labels=y_tick_labels, y_tick_weak=y_tick_weak,
         notes=notes,
     ).ensure_table()
-    try:
-        import matplotlib.pyplot as plt
-        fig = plot_marey(*elapsed_profiles(stop_events), line.label, subtitle, mode="light", coverage=coverage, stops_on_x=False)
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=144, bbox_inches="tight", facecolor=fig.get_facecolor())
-        plt.close(fig)
-        res.image_png = base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception as exc:
-        notes.append(f"Matplotlib render failed: {exc}")
-        res.notes = notes
+    res.image_png = _static_png(
+        ("marey", line.line_ref, subtitle),
+        lambda: plot_marey(*elapsed_profiles(stop_events), line.label, subtitle,
+                           mode="light", coverage=coverage, stops_on_x=False),
+    )
     return res
 
 
@@ -416,15 +447,10 @@ def run_heatmap(req: AnalysisRequest):
         value_label="actual / planned",
         notes=notes,
     )
-    try:
-        import matplotlib.pyplot as plt
-        matrix_data = segment_hour_matrix(ride_segments)
-        fig = plot_segment_hour_heatmap(matrix_data, line.label, subtitle, min_samples=DEFAULT_MIN_SAMPLES, mode="light", stops_on_x=False)
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=144, bbox_inches="tight", facecolor=fig.get_facecolor())
-        plt.close(fig)
-        res.image_png = base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception as exc:
-        notes.append(f"Matplotlib render failed: {exc}")
-        res.notes = notes
+    res.image_png = _static_png(
+        ("heatmap", line.line_ref, subtitle),
+        lambda: plot_segment_hour_heatmap(
+            segment_hour_matrix(ride_segments), line.label, subtitle,
+            min_samples=DEFAULT_MIN_SAMPLES, mode="light", stops_on_x=False),
+    )
     return res
