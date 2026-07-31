@@ -423,6 +423,23 @@ def run_heatmap(req: AnalysisRequest):
     except NoMatch as exc:
         return _no_match_card(exc)
     matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
+
+    # Calculate actuals and planned durations in minutes
+    df = ride_segments.copy()
+    df["actual_min"] = df["actual_duration_s"] / 60.0
+    df["planned_min"] = df["planned_duration_s"] / 60.0
+
+    keys = ["segment_index", "from_name", "to_name"]
+    cells_times = df.groupby(keys + ["departure_hour"], as_index=False).agg(
+        actual_min=("actual_min", "median"),
+        planned_min=("planned_min", "median")
+    )
+    actuals_pivot = cells_times.pivot_table(index=keys, columns="departure_hour", values="actual_min", dropna=False).sort_index(level="segment_index")
+    planned_pivot = cells_times.pivot_table(index=keys, columns="departure_hour", values="planned_min", dropna=False).sort_index(level="segment_index")
+
+    actuals = actuals_pivot.reindex(index=matrix.ratio.index, columns=matrix.ratio.columns)
+    planned = planned_pivot.reindex(index=matrix.ratio.index, columns=matrix.ratio.columns)
+
     # matrix.ratio is indexed by (segment_index, from_name, to_name); the segment
     # pair is what a reader actually recognises, so label rows with that.
     labels = [f"{from_name} ← {to_name}" for _, from_name, to_name in matrix.ratio.index]
@@ -445,6 +462,8 @@ def run_heatmap(req: AnalysisRequest):
         row_axis_label="segment",
         col_axis_label="departure hour",
         value_label="actual / planned",
+        actuals=actuals,
+        planned=planned,
         notes=notes,
     )
     res.image_png = _static_png(

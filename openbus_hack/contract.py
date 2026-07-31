@@ -157,6 +157,8 @@ class HeatmapCell(BaseModel):
     count: int | None = None
     # Set when the cell is measured but under-sampled — drawn hatched, not hidden.
     weak: bool = False
+    actual: float | None = None
+    planned: float | None = None
 
 
 class GeoLegend(BaseModel):
@@ -375,6 +377,7 @@ def heatmap(values: Any, counts: Any = None, *, row_labels: list[str] | None = N
             subtitle: str | None = None, row_axis_label: str | None = None,
             col_axis_label: str | None = None, value_label: str | None = None,
             value_suffix: str | None = None,
+            actuals: Any = None, planned: Any = None,
             notes: list[str] | None = None) -> AnalysisResult:
     """A grid of values rendered client-side, from a DataFrame (rows × columns).
 
@@ -396,6 +399,8 @@ def heatmap(values: Any, counts: Any = None, *, row_labels: list[str] | None = N
         for j in range(len(cols)):
             v = _nan_to_none(values.iat[i, j])
             n = None if counts is None else _nan_to_none(counts.iat[i, j])
+            act = None if actuals is None else _nan_to_none(actuals.iat[i, j])
+            pln = None if planned is None else _nan_to_none(planned.iat[i, j])
             # Absent cells are simply omitted — the renderer shows "no data",
             # which must not look like a measured zero.
             if v is None and not n:
@@ -403,6 +408,7 @@ def heatmap(values: Any, counts: Any = None, *, row_labels: list[str] | None = N
             count = None if n is None else int(n)
             cells.append(HeatmapCell(
                 row=i, col=j, value=v, count=count,
+                actual=act, planned=pln,
                 weak=bool(min_count is not None and count is not None and count < min_count),
             ))
 

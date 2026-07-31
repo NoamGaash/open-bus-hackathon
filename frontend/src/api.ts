@@ -72,6 +72,8 @@ export interface HeatmapCell {
   count: number | null
   /** Measured but under-sampled — drawn hatched, never hidden. */
   weak: boolean
+  actual?: number | null
+  planned?: number | null
 }
 
 export interface HeatmapData {

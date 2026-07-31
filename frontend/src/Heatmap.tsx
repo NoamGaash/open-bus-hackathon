@@ -200,6 +200,18 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
               {hm.value_suffix ?? ''}
             </b>
           </div>
+          {hover.cell.actual !== null && hover.cell.actual !== undefined && (
+            <div className="tt-row">
+              <span>observed actual</span>
+              <b>{fmtNum(hover.cell.actual)} min</b>
+            </div>
+          )}
+          {hover.cell.planned !== null && hover.cell.planned !== undefined && (
+            <div className="tt-row">
+              <span>scheduled plan</span>
+              <b>{fmtNum(hover.cell.planned)} min</b>
+            </div>
+          )}
           {hover.cell.count !== null && hover.cell.count !== undefined && (
             <div className="tt-row">
               <span>samples</span>
