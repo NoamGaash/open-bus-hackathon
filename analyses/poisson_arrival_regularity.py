@@ -65,8 +65,8 @@ def run_poisson(req: AnalysisRequest):
     line, stop_events, _ride_segments, subtitle = resolved_data
 
     # Calculate stop-wise interarrival gap CV
-    # stop_events has: siri_ride_id, stop_sequence, stop_name, recorded_at_time, ride_date
-    stop_events = stop_events.dropna(subset=["recorded_at_time", "stop_sequence"])
+    # stop_events has: siri_ride_id, stop_sequence, stop_name, actual_time, ride_date
+    stop_events = stop_events.dropna(subset=["actual_time", "stop_sequence"])
 
     stop_results = []
 
@@ -77,7 +77,7 @@ def run_poisson(req: AnalysisRequest):
         gaps = []
         for _date, day_grp in grp.groupby("ride_date"):
             # Sort chronologically to get consecutive arrivals
-            arrivals = day_grp["recorded_at_time"].sort_values()
+            arrivals = day_grp["actual_time"].sort_values()
             if len(arrivals) >= 2:
                 # Gaps in minutes
                 day_gaps = arrivals.diff().dropna().dt.total_seconds() / 60
