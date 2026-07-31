@@ -274,7 +274,7 @@ function AnalysisCard({
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
-  const [showTable, setShowTable] = useState(false)
+  const [view, setView] = useState<'chart' | 'static' | 'table'>('chart')
   const [opts, setOpts] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(meta.options.map((o) => [o.key, o.default])),
   )
@@ -293,7 +293,13 @@ function AnalysisCard({
       options: opts,
     }
     try {
-      setResult(await api.run(meta.name, body))
+      const data = await api.run(meta.name, body)
+      setResult(data)
+      if (data.kind === 'image') {
+        setView('static')
+      } else {
+        setView('chart')
+      }
     } catch (e) {
       setFailed((e as Error).message)
     } finally {
@@ -408,9 +414,9 @@ function AnalysisCard({
 
         {!busy && result && result.kind === 'metrics' && <Tiles result={result} />}
 
-        {!busy && result && isChart && !showTable && <Chart result={result} />}
+        {!busy && result && isChart && view === 'chart' && <Chart result={result} />}
 
-        {!busy && result && result.kind === 'heatmap' && result.heatmap && !showTable && (
+        {!busy && result && result.kind === 'heatmap' && result.heatmap && view === 'chart' && (
           <Heatmap result={result} />
         )}
 
@@ -418,7 +424,7 @@ function AnalysisCard({
           <GeoMap result={result} />
         )}
 
-        {!busy && result && result.kind === 'image' && result.image_png && (
+        {!busy && result && ((result.kind === 'image' && view === 'static') || (isPlot && view === 'static' && result.image_png)) && (
           <img
             className="chart-img"
             src={`data:image/png;base64,${result.image_png}`}
@@ -428,7 +434,7 @@ function AnalysisCard({
 
         {!busy &&
           result &&
-          (result.kind === 'table' || (isPlot && showTable)) &&
+          (result.kind === 'table' || view === 'table') &&
           hasTable && <TableView result={result} />}
 
         {!busy && result && result.notes.length > 0 && (
@@ -446,11 +452,53 @@ function AnalysisCard({
         <button className="ghost" onClick={() => void run()} disabled={busy}>
           {busy ? 'running…' : '↻ rerun'}
         </button>
-        {/* Table view is the relief for low-contrast palette slots in light mode. */}
-        {isPlot && hasTable && (
-          <button className="ghost" onClick={() => setShowTable((s) => !s)}>
-            {showTable ? 'chart' : 'table'}
-          </button>
+        {/* Render selection buttons if multi-view is possible */}
+        {isPlot && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              className={`ghost ${view === 'chart' ? 'primary' : ''}`}
+              onClick={() => setView('chart')}
+              style={view === 'chart' ? { background: 'var(--s1)', color: '#fff' } : {}}
+            >
+              interactive
+            </button>
+            {result?.image_png && (
+              <button
+                className={`ghost ${view === 'static' ? 'primary' : ''}`}
+                onClick={() => setView('static')}
+                style={view === 'static' ? { background: 'var(--s1)', color: '#fff' } : {}}
+              >
+                static draft
+              </button>
+            )}
+            {hasTable && (
+              <button
+                className={`ghost ${view === 'table' ? 'primary' : ''}`}
+                onClick={() => setView('table')}
+                style={view === 'table' ? { background: 'var(--s1)', color: '#fff' } : {}}
+              >
+                table
+              </button>
+            )}
+          </div>
+        )}
+        {result?.kind === 'image' && hasTable && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              className={`ghost ${view === 'static' ? 'primary' : ''}`}
+              onClick={() => setView('static')}
+              style={view === 'static' ? { background: 'var(--s1)', color: '#fff' } : {}}
+            >
+              draft plot
+            </button>
+            <button
+              className={`ghost ${view === 'table' ? 'primary' : ''}`}
+              onClick={() => setView('table')}
+              style={view === 'table' ? { background: 'var(--s1)', color: '#fff' } : {}}
+            >
+              table
+            </button>
+          </div>
         )}
         <span className="spacer" />
         <span className="byline">{meta.module.replace(/^analyses\./, '')}</span>

@@ -24,6 +24,8 @@ import datetime
 
 import pandas as pd
 
+import io
+import base64
 from bus_times import (
     LineSpec,
     aggregate_segments,
@@ -34,6 +36,9 @@ from bus_times import (
     segment_hour_matrix,
     stop_coverage,
 )
+from bus_times.viz.segment_bars import plot_segment_times
+from bus_times.viz.marey import plot_marey
+from bus_times.viz.heatmap import plot_segment_hour_heatmap
 from bus_times.config import DEFAULT_LAG_DAYS, DEFAULT_MIN_SAMPLES
 
 from openbus_hack import (
@@ -255,13 +260,25 @@ def run_segments(req: AnalysisRequest):
                         "'not enough evidence'.")
     notes = [*_match_notes(line, alts), *notes]
 
-    return bar_chart(
+    res = bar_chart(
         long, x="segment", y="minutes", series="kind", low="p25", high="p75", horizontal=True,
         title="Where the timetable is optimistic",
         subtitle=f"{line.label} · {subtitle}",
         x_label="segment", y_label="minutes",
         notes=notes,
     )
+    try:
+        import matplotlib.pyplot as plt
+        fig = plot_segment_times(aggregated, line.label, subtitle, mode="light", stops_on_x=False)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=144, bbox_inches="tight", facecolor=fig.get_facecolor())
+        plt.close(fig)
+        res.image_png = base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as exc:
+        # One plot failing to draw must not crash the whole card
+        notes.append(f"Matplotlib render failed: {exc}")
+        res.notes = notes
+    return res
 
 
 @analysis(
@@ -330,7 +347,7 @@ def run_marey(req: AnalysisRequest):
                         "through them are interpolation more than measurement.")
 
     notes = [*_match_notes(line, alts), *notes]
-    return AnalysisResult(
+    res = AnalysisResult(
         kind="chart", chart_type="trajectories", series=series,
         title="Where the bus loses time",
         subtitle=f"{line.label} · {subtitle}",
@@ -338,6 +355,17 @@ def run_marey(req: AnalysisRequest):
         y_tick_labels=y_tick_labels, y_tick_weak=y_tick_weak,
         notes=notes,
     ).ensure_table()
+    try:
+        import matplotlib.pyplot as plt
+        fig = plot_marey(*elapsed_profiles(stop_events), line.label, subtitle, mode="light", coverage=coverage, stops_on_x=False)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=144, bbox_inches="tight", facecolor=fig.get_facecolor())
+        plt.close(fig)
+        res.image_png = base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as exc:
+        notes.append(f"Matplotlib render failed: {exc}")
+        res.notes = notes
+    return res
 
 
 def _linspace(start: float, stop: float, num: int) -> list[float]:
@@ -367,7 +395,14 @@ def run_heatmap(req: AnalysisRequest):
     # matrix.ratio is indexed by (segment_index, from_name, to_name); the segment
     # pair is what a reader actually recognises, so label rows with that.
     labels = [f"{from_name} ← {to_name}" for _, from_name, to_name in matrix.ratio.index]
-    return heatmap(
+    notes = [
+        *_match_notes(line, alts),
+        "1.00 means exactly on schedule; above that the segment ran longer than "
+        "the timetable allows. Hatched cells are measured but rest on fewer than "
+        f"{DEFAULT_MIN_SAMPLES} rides; empty cells had no usable ride at all.",
+        _CREDIT,
+    ]
+    res = heatmap(
         matrix.ratio,
         matrix.count,
         row_labels=labels,
@@ -379,11 +414,17 @@ def run_heatmap(req: AnalysisRequest):
         row_axis_label="segment",
         col_axis_label="departure hour",
         value_label="actual / planned",
-        notes=[
-            *_match_notes(line, alts),
-            "1.00 means exactly on schedule; above that the segment ran longer than "
-            "the timetable allows. Hatched cells are measured but rest on fewer than "
-            f"{DEFAULT_MIN_SAMPLES} rides; empty cells had no usable ride at all.",
-            _CREDIT,
-        ],
+        notes=notes,
     )
+    try:
+        import matplotlib.pyplot as plt
+        matrix_data = segment_hour_matrix(ride_segments)
+        fig = plot_segment_hour_heatmap(matrix_data, line.label, subtitle, min_samples=DEFAULT_MIN_SAMPLES, mode="light", stops_on_x=False)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=144, bbox_inches="tight", facecolor=fig.get_facecolor())
+        plt.close(fig)
+        res.image_png = base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as exc:
+        notes.append(f"Matplotlib render failed: {exc}")
+        res.notes = notes
+    return res
