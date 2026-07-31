@@ -212,7 +212,7 @@ def _load(line_ref: int, operator_ref: int, date_from: date, date_to: date,
     classified. Returns (per_ride DataFrame, diagnostics dict) or None if
     there is no GTFS plan at all for this scope/window."""
 
-    key = ("v1", line_ref, operator_ref, date_from.isoformat(), date_to.isoformat(),
+    key = ("v2", line_ref, operator_ref, date_from.isoformat(), date_to.isoformat(),
            early_threshold, late_threshold)
 
     def compute():
@@ -363,13 +363,36 @@ def _method_notes(scope: dict, diag: dict, early_t: float, late_t: float) -> lis
         "the split between categories as indicative, not a legal finding."
     )
     notes.append(
-        "'Actual departure' is a proxy: the timestamp of the first SIRI GPS ping recorded "
-        "against a ride's scheduled slot, compared to that scheduled time. GPS pings land "
-        "every ~30s-2min, so this proxy has roughly that much built-in noise, and a ride "
-        "whose first ping happens to arrive after it was already moving will understate "
-        "earliness. No per-stop arrival times were used (unlike other cards in this repo) — "
-        "this only speaks to departure timing, not what happened along the route."
+        "'Actual departure' is a proxy: the timestamp of the first SIRI GPS ping where the "
+        "vehicle shows nonzero distance-from-journey-start or nonzero velocity, compared to "
+        "the scheduled time. This is deliberately NOT the very first ping seen for the ride: "
+        "verified live while building this card, on a sampled line ~80% of rides' raw first "
+        "pings landed at almost exactly -30 or -5 minutes before schedule with the vehicle "
+        "stationary (distance_from_journey_start=0, velocity=0) — the operator's feed "
+        "evidently starts reporting a vehicle against its upcoming ride a fixed lead time "
+        "before departure, while it's still parked boarding passengers. Using that raw first "
+        "ping as 'departure' would have shown ~90% of rides as 'early', which was a feed "
+        "artifact, not a real finding — filtering to the first ping showing actual movement "
+        "removed it. Residual noise: GPS pings land every ~30s-2min, so departure times still "
+        "carry roughly that much error. No per-stop arrival times were used (unlike other "
+        "cards in this repo) — this only speaks to departure timing, not what happened along "
+        "the route."
     )
+    if diag["n_stationary_only"]:
+        notes.append(
+            f"{diag['n_stationary_only']} matched ride(s) were seen by SIRI but never showed "
+            "movement anywhere in the queried window — their delta falls back to the raw "
+            "first ping (the pre-departure 'parked and boarding' signal described above), so "
+            "their early/late/on-time classification is unreliable and should be read with "
+            "extra skepticism."
+        )
+    if diag["n_no_schedule"]:
+        notes.append(
+            f"{diag['n_no_schedule']} planned ride(s) from /gtfs_rides/list came back with no "
+            "scheduled start_time at all (a GTFS source data gap, not a SIRI issue) and were "
+            "excluded entirely — they can't be timed or ghost-checked without a schedule to "
+            "compare against."
+        )
     notes.append(
         f"IMPORTANT — ghost rides are the least certain category. {GHOST_LABEL!r} means no "
         "GPS ping matched that ride's scheduled slot in this scope+window; it does NOT "

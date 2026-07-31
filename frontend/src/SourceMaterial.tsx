@@ -35,6 +35,18 @@ const GROUPS: RepoGroup[] = [
     ],
   },
   {
+    repo: 'NoamGaash/open-bus-hackathon',
+    branch: 'yuval',
+    url: 'https://github.com/noamf2001/PublicTransportHackathon/tree/yuval',
+    author: 'yuvalko1',
+    files: [
+      {
+        path: 'notebooks/open_bus_poisson_analysis_all_in_one.ipynb',
+        builtInto: 'notebooks/open_bus_poisson_analysis_all_in_one.ipynb — Poisson-arrival decay analysis exploratory notebook.',
+      },
+    ],
+  },
+  {
     repo: 'yuvalko1/talpiot-hackathon-public-transportation',
     branch: 'main',
     url: 'https://github.com/yuvalko1/talpiot-hackathon-public-transportation/tree/main',
@@ -241,7 +253,7 @@ export function SourceMaterial() {
         what a team member wrote against what ended up on the dashboard.
       </p>
       {GROUPS.map((g) => (
-        <div key={g.repo} className="source-group">
+        <div key={`${g.repo}-${g.branch}`} className="source-group">
           <h3>
             <a href={g.url} target="_blank" rel="noreferrer">
               {g.repo}
