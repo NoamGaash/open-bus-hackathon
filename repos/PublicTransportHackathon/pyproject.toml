@@ -1,0 +1,29 @@
+[project]
+name = "publictransporthackathon"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=7.3.0",
+    # 3.11 is a hard floor, not a preference: it lays text out through HarfBuzz and applies the
+    # Unicode Bidirectional Algorithm itself. Hebrew labels are passed in logical order and rely on
+    # that. On older matplotlib they would render reversed and need explicit reordering.
+    "matplotlib>=3.11.1",
+    "numpy>=2.5.1",
+    "open-bus-stride-client>=0.1.8",
+    "pandas>=3.0.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bus_times"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

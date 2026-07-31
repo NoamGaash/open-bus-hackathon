@@ -280,6 +280,31 @@ const EXPLANATIONS: Record<string, Explanation> = {
     whoDidIt: 'orion (days_with_no_cancellations)',
     rationale: 'A cancellation is the ultimate service failure. By checking planned runs against GPS execution, we calculate a 15-day score representing the fraction of days with zero cancellations.',
   },
+  'bus-bunching': {
+    whatWeSee: 'The distribution of actual time gaps (headways) between consecutive departures compared to the scheduled spacing. It visualizes bunched buses (nose-to-tail, under 25% of schedule) and gapped buses (large delay, over 175% of schedule).',
+    whoDidIt: 'team (bus_bunching.py)',
+    rationale: 'Measures high-frequency service regularity. When buses cluster together, it strands passengers during long gaps and wastes system capacity.',
+  },
+  'route-divergence': {
+    whatWeSee: 'The percentage of GPS pings on each ride that drifted over 150 meters away from the official GTFS planned shape polyline.',
+    whoDidIt: 'team (route_divergence.py)',
+    rationale: 'Detects unauthorized detours, skipped neighborhoods, or drivers getting lost. A route divergence rate of over 30% of pings triggers a major service SLA infraction.',
+  },
+  'route-divergence-map': {
+    whatWeSee: 'An interactive map rendering the official planned route path (dashed line) versus the actual vehicle coordinate pings (dots), color-coded to highlight exactly where the bus strayed from the route.',
+    whoDidIt: 'team (route_divergence.py)',
+    rationale: 'Pinpoints the precise physical streets or intersections where detour infractions occur, enabling operators to audit driver compliance.',
+  },
+  'service-violations': {
+    whatWeSee: 'A breakdown of scheduled rides classified by contractual compliance: On-time departures, Early departures, Late departures, and Ghost rides (scheduled but received zero GPS pings).',
+    whoDidIt: 'team (service_violations.py)',
+    rationale: 'Provides an automated SLA contract audit. In Israel, intermediate earliness (>2 mins) and terminal lateness (>15 mins) trigger direct Ministry fines.',
+  },
+  'service-violations-by-day': {
+    whatWeSee: 'A daily breakdown chart tracking early, late, on-time, and ghost ride rates across the selected date range.',
+    whoDidIt: 'team (service_violations.py)',
+    rationale: 'Identifies chronic service failure patterns across days of the week, helping transit agencies monitor operator performance over time.',
+  },
 }
 
 function AnalysisCard({

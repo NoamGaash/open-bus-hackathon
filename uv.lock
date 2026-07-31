@@ -1488,7 +1488,7 @@ requires-dist = [
     { name = "nbdime", specifier = ">=4.0" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
-    { name = "publictransporthackathon", git = "https://github.com/noamf2001/PublicTransportHackathon?rev=analyze-per-subsequent-stops" },
+    { name = "publictransporthackathon", directory = "repos/PublicTransportHackathon" },
     { name = "pydantic", specifier = ">=2.8" },
     { name = "python-dateutil", specifier = ">=2.9" },
     { name = "shapely", marker = "extra == 'geo'", specifier = ">=2.0" },
@@ -1723,7 +1723,7 @@ wheels = [
 [[package]]
 name = "publictransporthackathon"
 version = "0.1.0"
-source = { git = "https://github.com/noamf2001/PublicTransportHackathon?rev=analyze-per-subsequent-stops#bdcd7c1030597cddf2fae3d43f631367fba491d2" }
+source = { directory = "repos/PublicTransportHackathon" }
 dependencies = [
     { name = "ipykernel" },
     { name = "matplotlib" },
@@ -1731,6 +1731,18 @@ dependencies = [
     { name = "open-bus-stride-client" },
     { name = "pandas" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "ipykernel", specifier = ">=7.3.0" },
+    { name = "matplotlib", specifier = ">=3.11.1" },
+    { name = "numpy", specifier = ">=2.5.1" },
+    { name = "open-bus-stride-client", specifier = ">=0.1.8" },
+    { name = "pandas", specifier = ">=3.0.5" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "pure-eval"

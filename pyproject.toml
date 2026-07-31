@@ -53,4 +53,4 @@ select = ["E", "F", "I", "UP", "B"]
 per-file-ignores = { "workspace/**" = ["E501", "F401", "F841"], "notebooks/**" = ["E501", "F401"] }
 
 [tool.uv.sources]
-publictransporthackathon = { git = "https://github.com/noamf2001/PublicTransportHackathon", rev = "analyze-per-subsequent-stops" }
+publictransporthackathon = { path = "repos/PublicTransportHackathon" }
