@@ -126,6 +126,18 @@ const GROUPS: RepoGroup[] = [
       },
     ],
   },
+  {
+    repo: 'tlv-bus-dashboards.zip',
+    branch: 'local',
+    url: '#',
+    author: 'team',
+    files: [
+      {
+        path: 'tlv-bus-dashboards/README.txt',
+        builtInto: 'Shared README and context for the Tel Aviv interactive dashboards.',
+      },
+    ],
+  },
 ]
 
 type LoadState =

@@ -64,6 +64,26 @@ export default function App() {
         <span className="sub">
           {metas ? `${shown.length} ${shown.length === 1 ? 'analysis' : 'analyses'}` : 'loading…'}
         </span>
+        <div style={{ marginLeft: 20, display: 'flex', gap: 10 }}>
+          <a
+            href="/tlv-bus-speed.html"
+            target="_blank"
+            rel="noreferrer"
+            className="badge"
+            style={{ textDecoration: 'none', background: 'var(--s1)', color: '#fff', borderColor: 'var(--s1)', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            🗺️ TLV Bus Speed Map
+          </a>
+          <a
+            href="/bunching-reasons.html"
+            target="_blank"
+            rel="noreferrer"
+            className="badge"
+            style={{ textDecoration: 'none', background: 'var(--s1)', color: '#fff', borderColor: 'var(--s1)', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            🚍 TLV Bus Bunching Analysis
+          </a>
+        </div>
         <span className="spacer" />
         <ThemeToggle />
       </header>
