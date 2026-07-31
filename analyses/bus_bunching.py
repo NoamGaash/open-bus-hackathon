@@ -31,7 +31,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from openbus_hack import AnalysisRequest, analysis, bar_chart, metrics, stride
+from openbus_hack import AnalysisRequest, OptionSpec, analysis, bar_chart, metrics, stride
 from openbus_hack.diskcache import cached
 
 ISRAEL_TZ = ZoneInfo("Asia/Jerusalem")
@@ -75,6 +75,14 @@ MIN_HEADWAYS = 5
 DISCOVERY_SAMPLE_LIMIT = 500
 
 
+_OPTIONS = [
+    OptionSpec(key="max_days", label="Max days to sample (0 = all)", type="number", default=2,
+               help="The maximum number of weekdays to fetch GPS headways for. "
+                    "Raise this to scan more days, or set to 0 to fetch every single "
+                    "day in your date range (no sampling)!"),
+]
+
+
 @analysis(
     name="bus-bunching",
     title="Bus bunching: headway regularity",
@@ -87,6 +95,7 @@ DISCOVERY_SAMPLE_LIMIT = 500
     author="team",
     tags=["siri", "reliability", "bunching", "headway"],
     inputs=["lines", "operators", "dates"],
+    options=_OPTIONS,
     draft=False,
 )
 def run(req: AnalysisRequest):
@@ -109,11 +118,18 @@ def run(req: AnalysisRequest):
              f"direction {resolved['route_direction']}, operator "
              f"{resolved['agency_name']} (operator_ref={resolved['operator_ref']})")
 
-    days, n_weekend_dropped = _sample_days(req)
+    max_days = int(req.opt("max_days", 2) or 2)
+    days, n_weekend_dropped = _sample_days(req, max_days)
+    
+    label_days_desc = (
+        f"Fetched all {len(days)} requested day(s) (sampling disabled)."
+        if max_days == 0
+        else f"Sampled {len(days)} of {req.days} requested day(s), capped at {max_days} (to limit network cost)."
+    )
+
     notes: list[str] = [
         label + ".",
-        f"Sampled {len(days)} of {req.days} requested day(s), capped at "
-        f"{MAX_DAYS} — each day costs one GPS-ping fetch for this line alone "
+        f"{label_days_desc} Each day costs one GPS-ping fetch for this line alone "
         "(see module docstring for why a full multi-day scan doesn't fit a "
         "dashboard card).",
     ]
@@ -309,19 +325,20 @@ def _resolve_line(req: AnalysisRequest) -> dict | None:
     }
 
 
-def _sample_days(req: AnalysisRequest) -> tuple[list[dt.date], int]:
-    """Up to MAX_DAYS weekdays (Sun-Thu), evenly spread across the requested
+def _sample_days(req: AnalysisRequest, max_days: int = 2) -> tuple[list[dt.date], int]:
+    """Up to max_days weekdays (Sun-Thu), evenly spread across the requested
     window, so a capped sample still represents the whole window instead of
-    skewing toward one end. Returns (days, n_weekend_days_dropped)."""
+    skewing toward one end. Returns (days, n_weekend_days_dropped).
+    If max_days is 0, disables sampling and returns all weekdays in the window."""
     all_days = req.dates()
     weekdays = [d for d in all_days if d.weekday() not in WEEKEND_WEEKDAYS]
     dropped = len(all_days) - len(weekdays)
     # A window that's entirely Fri/Sat still gets sampled rather than returning
     # nothing — the notes above say so either way.
     pool = weekdays or all_days
-    if len(pool) <= MAX_DAYS:
+    if max_days == 0 or len(pool) <= max_days:
         return sorted(pool), dropped
-    idx = np.linspace(0, len(pool) - 1, MAX_DAYS)
+    idx = np.linspace(0, len(pool) - 1, max_days)
     return sorted({pool[int(round(i))] for i in idx}), dropped
 
 
