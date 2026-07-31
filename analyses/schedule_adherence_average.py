@@ -90,12 +90,12 @@ def _largest_group(df: pd.DataFrame, col: str) -> pd.DataFrame:
     return df[df[col] == df[col].value_counts().idxmax()]
 
 
-def _load(line_ref: str, days_back: int, ref_date: datetime.date):
+def _load(line_ref: str, days_back: int, ref_date: datetime.date, start_hour: str):
     """Scan back day by day for the same departure time, keeping days whose plan
     matches the reference stop sequence and that have GPS. Disk-cached: this is
     2 API calls per scanned day."""
 
-    key = ("v3-dedup", line_ref, days_back, ref_date.isoformat())
+    key = ("v4-dedup", line_ref, days_back, ref_date.isoformat(), start_hour)
 
     def compute():
         routes = stride.get("/gtfs_routes/list", {
@@ -109,15 +109,20 @@ def _load(line_ref: str, days_back: int, ref_date: datetime.date):
         operator_ref = route["operator_ref"]
         label = f"{route.get('route_short_name', line_ref)} {route.get('route_long_name', '')}".strip()
 
-        # Anchor on a real departure time: the first departure on the most recent
-        # day that has any timetable for this line.
+        # Resolve target hour
+        target_time = datetime.time(0, 0)
+        if start_hour != "first":
+            target_time = datetime.time(int(start_hour), 0)
+
+        # Anchor on a real departure time: the first departure on or after target_time
+        # on the most recent day that has any timetable for this line.
         time_of_day = None
         for back in range(1, 10):
             day = ref_date - datetime.timedelta(days=back)
             rows = stride.get("/route_timetable/list", {
                 "line_refs": line_ref,
                 "planned_start_time_date_from": datetime.datetime.combine(
-                    day, datetime.time(0, 0), tzinfo=ISRAEL_TZ),
+                    day, target_time, tzinfo=ISRAEL_TZ),
                 "planned_start_time_date_to": datetime.datetime.combine(
                     day, datetime.time(23, 59), tzinfo=ISRAEL_TZ),
                 "order_by": "gtfs_line_start_time", "limit": 1,
@@ -220,6 +225,7 @@ def _no_match_card(exc: NoMatch):
 
 def _fetch(req: AnalysisRequest):
     line_ref = str(req.opt("line_ref", "18663") or "18663")
+    start_hour = str(req.opt("start_hour", "first") or "first")
     
     if req.line:
         routes_df = stride.routes(
@@ -249,7 +255,7 @@ def _fetch(req: AnalysisRequest):
     days_back = min(days_diff, days_back_opt)
     days_back = max(1, days_back)
     
-    return _load(line_ref, days_back, ref_date)
+    return _load(line_ref, days_back, ref_date, start_hour)
 
 
 def _per_stop_elapsed(data: dict):
