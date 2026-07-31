@@ -198,6 +198,70 @@ function FilterBar({
   )
 }
 
+interface Explanation {
+  whatWeSee: string
+  whoDidIt: string
+  rationale: string
+}
+
+const EXPLANATIONS: Record<string, Explanation> = {
+  'service-by-operator': {
+    whatWeSee: 'A line chart tracking scheduled (planned) rides versus actual completed rides day-by-day across the country.',
+    whoDidIt: 'example (worked baseline / boilerplate)',
+    rationale: 'Establishes a high-level baseline of daily service execution, showing if the operator ran fewer trips than scheduled.',
+  },
+  'bus-hourly-heatmap': {
+    whatWeSee: 'A segment-by-hour matrix. Red cells indicate that buses ran significantly slower than scheduled, blue is faster, and gray is on-time.',
+    whoDidIt: 'noamf2001 (PublicTransportHackathon)',
+    rationale: 'Identifies exact bottleneck locations at precise times of the day (such as morning/evening rush hours) rather than averaging performance across a whole day.',
+  },
+  'bus-marey-diagram': {
+    whatWeSee: 'A stringline/time-space diagram showing individual bus trip trajectories as faint blue lines against the dashed scheduled plan.',
+    whoDidIt: 'noamf2001 (PublicTransportHackathon)',
+    rationale: 'The slope of each line represents speed (steep is moving, flat is stuck). The spread (width) of the blue lines shows the day-to-day unreliability of the schedule.',
+  },
+  'bus-segment-reliability': {
+    whatWeSee: 'Horizontal bars showing actual travel times (with interquartile range whiskers) compared to the GTFS planned timetable.',
+    whoDidIt: 'noamf2001 (PublicTransportHackathon)',
+    rationale: 'Highlights which stop-to-stop segments are chronically late, pinpointing exactly where the timetable is too optimistic.',
+  },
+  'busline-usage-anomaly': {
+    whatWeSee: 'Hourly ticketing validations scored as a standardized z-score against geographical and socioeconomic cluster peers.',
+    whoDidIt: 'team (NoamGaash / busline_usage_anomaly.ipynb)',
+    rationale: 'Isolates and highlights under-used or overcrowded bus runs relative to their peers, rather than comparing lines in completely different contexts (e.g. city center vs. rural).',
+  },
+  'gps-trace-map': {
+    whatWeSee: 'An interactive map rendering the absolute, real-world GPS trace of a single selected bus ride, colored with a time-of-day gradient.',
+    whoDidIt: 'yuvalko1 (talpiot-hackathon-public-transportation)',
+    rationale: 'Provides ground-truth auditability. Visualizes missing GPS pings, trace drift, or deviations from the planned route.',
+  },
+  'schedule-adherence-average': {
+    whatWeSee: 'A stringline diagram mapping arrival delay trends of a single departure across multiple days compared to the planned timetable.',
+    whoDidIt: 'yuvalko1 (talpiot-hackathon-public-transportation)',
+    rationale: 'Helps regular commuters understand if a specific daily run (e.g., the 8:00 AM departure) is chronically delayed and how much its arrival time fluctuates.',
+  },
+  'schedule-adherence-by-day': {
+    whatWeSee: 'Total trip duration on each individual date compared to the planned scheduled run time.',
+    whoDidIt: 'yuvalko1 (talpiot-hackathon-public-transportation)',
+    rationale: 'Pinpoints specific calendar days that suffered catastrophic delay (e.g., due to accidents, protests, or extreme weather) to isolate them from systemic delay.',
+  },
+  'schedule-adherence-map': {
+    whatWeSee: 'The planned path (dashed line) vs. the actual GPS-averaged route (solid line) mapped directly onto physical streets.',
+    whoDidIt: 'yuvalko1 (talpiot-hackathon-public-transportation)',
+    rationale: 'Shows exactly where buses lose physical distance on the road, highlighting delay hot-spots or detours.',
+  },
+  'siri-coverage': {
+    whatWeSee: 'Percentage of planned stops that received a matching live GPS ping, grouped by hour of the day.',
+    whoDidIt: 'yuvalko1 (talpiot-hackathon-public-transportation)',
+    rationale: 'Measures telemetry data quality. Low coverage (less than 50%) means real-time ETA predictions for passengers will be unreliable.',
+  },
+  'days-with-no-cancellations': {
+    whatWeSee: 'An operated vs. cancelled daily breakdown (single line) or a ranked bar chart of worst-performing lines for a given operator.',
+    whoDidIt: 'orion (days_with_no_cancellations)',
+    rationale: 'A cancellation is the ultimate service failure. By checking planned runs against GPS execution, we calculate a 15-day score representing the fraction of days with zero cancellations.',
+  },
+}
+
 function AnalysisCard({
   meta,
   filters,
@@ -265,6 +329,8 @@ function AnalysisCard({
   // some palette slots fall below 3:1 contrast in light mode.
   const isPlot = isChart || result?.kind === 'heatmap'
 
+  const explanation = EXPLANATIONS[meta.name]
+
   return (
     <section className="card">
       <div className="card-head">
@@ -274,6 +340,17 @@ function AnalysisCard({
         {meta.author && <span className="byline">{meta.author}</span>}
       </div>
       {meta.description && <p className="card-desc">{meta.description}</p>}
+
+      {explanation && (
+        <details className="card-explanation">
+          <summary>💡 Demo Pitch & Technical Rationale</summary>
+          <div className="explanation-content">
+            <p><strong>What we see:</strong> {explanation.whatWeSee}</p>
+            <p><strong>Rationale & Method:</strong> {explanation.rationale}</p>
+            <p><strong>Original Draft Author:</strong> {explanation.whoDidIt}</p>
+          </div>
+        </details>
+      )}
 
       {meta.options.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>

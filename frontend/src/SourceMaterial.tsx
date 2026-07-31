@@ -94,6 +94,36 @@ const GROUPS: RepoGroup[] = [
           'per-line metro score was the same global data for every line; the port uses the ' +
           "ministry's own cluster grouping from the per-line resource instead.",
       },
+      {
+        path: 'orion/days_with_no_cancellations.py',
+        builtInto:
+          'analyses/days_with_no_cancellations.py — quality score logic assessing planned departures vs. GPS execution reports.',
+      },
+      {
+        path: 'orion/days_with_no_cancellations.md',
+        builtInto:
+          'analyses/days_with_no_cancellations.py — engineering design specifications of cancellation-detection metrics.',
+      },
+      {
+        path: 'orion/out/operator_35_scores.png',
+        builtInto:
+          'Draft visual — original horizontal score plot for operator 35 (בית שמש אקספרס).',
+      },
+      {
+        path: 'orion/out/operator_32_דן_באר_שבע_scores.png',
+        builtInto:
+          'Draft visual — original horizontal score plot for operator 32 (דן באר שבע).',
+      },
+      {
+        path: 'orion/out/operator_23_גלים_scores.png',
+        builtInto:
+          'Draft visual — original horizontal score plot for operator 23 (גלים).',
+      },
+      {
+        path: 'orion/out/operator_20_כרמלית_scores.png',
+        builtInto:
+          'Draft visual — original horizontal score plot for operator 20 (כרמלית).',
+      },
     ],
   },
 ]
@@ -105,7 +135,7 @@ type LoadState =
   | { status: 'ready'; cells: Cell[] }
 
 interface Cell {
-  kind: 'code' | 'markdown' | 'text'
+  kind: 'code' | 'markdown' | 'text' | 'image'
   source: string
 }
 
@@ -159,11 +189,31 @@ function SourceFileView({ file, repo, branch }: { file: { path: string; builtInt
             </p>
           )}
           {state.status === 'ready' &&
-            state.cells.map((c, i) => (
-              <pre key={i} className={`source-cell source-cell-${c.kind}`}>
-                <code>{c.source}</code>
-              </pre>
-            ))}
+            state.cells.map((c, i) => {
+              if (c.kind === 'image') {
+                return (
+                  <div key={i} className="source-image-cell" style={{ margin: '12px 0', textAlign: 'center' }}>
+                    <img
+                      src={c.source}
+                      alt="Source asset"
+                      style={{
+                        maxWidth: '100%',
+                        height: 'auto',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius)',
+                        background: 'var(--surface)',
+                        padding: '12px',
+                      }}
+                    />
+                  </div>
+                )
+              }
+              return (
+                <pre key={i} className={`source-cell source-cell-${c.kind}`}>
+                  <code>{c.source}</code>
+                </pre>
+              )
+            })}
         </div>
       )}
     </details>

@@ -269,6 +269,32 @@ button.ghost:hover:not(:disabled) {
   font-size: 12.5px;
   margin: 5px 0 0;
 }
+.card-explanation {
+  margin-top: 8px;
+  background: var(--plane);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.card-explanation summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--s1);
+  outline: none;
+  user-select: none;
+}
+.card-explanation summary:hover {
+  color: var(--s2);
+}
+.explanation-content {
+  margin-top: 6px;
+  color: var(--ink-2);
+}
+.explanation-content p {
+  margin: 4px 0;
+  line-height: 1.4;
+}
 .byline {
   font-size: 11px;
   color: var(--muted);

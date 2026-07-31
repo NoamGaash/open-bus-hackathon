@@ -48,8 +48,32 @@ def _parse_ipynb(text: str) -> list[dict]:
 
 
 def fetch_source_file(repo: str, branch: str, path: str) -> dict:
-    """Returns ``{"cells": [...]}`` or ``{"error": "..."}``. Disk-cached — this is a
-    subprocess call per file, not something to repeat on every page load."""
+    """Returns ``{"cells": [...]}`` or ``{"error": "..."}``. Serves local files from workspace
+    if repo is the local 'NoamGaash/open-bus-hackathon', otherwise fetches via gh CLI."""
+
+    if repo == "NoamGaash/open-bus-hackathon":
+        def compute_local():
+            local_file = Path("/workspaces/hackathon") / path
+            if not local_file.exists():
+                return {"error": f"Local file {path} not found"}
+            
+            if path.endswith(".png"):
+                try:
+                    png_bytes = local_file.read_bytes()
+                    b64_str = base64.b64encode(png_bytes).decode("ascii")
+                    return {"cells": [{"kind": "image", "source": f"data:image/png;base64,{b64_str}"}]}
+                except Exception as exc:
+                    return {"error": f"Failed to read local image {path}: {exc}"}
+            
+            try:
+                content = local_file.read_text(encoding="utf-8", errors="replace")
+            except Exception as exc:
+                return {"error": f"Failed to read local file {path}: {exc}"}
+            
+            cells = _parse_ipynb(content) if path.endswith(".ipynb") else [{"kind": "code", "source": content}]
+            return {"cells": cells}
+            
+        return cached("source_material_local", (repo, path), compute_local)
 
     def compute():
         try:
