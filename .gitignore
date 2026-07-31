@@ -31,10 +31,16 @@ frontend/.vite/
 .DS_Store
 Thumbs.db
 
-# Teammates' repos, cloned for reference (./dev clone-repos). They're separate
-# git repos with their own history — vendoring them here would nest repos and
-# duplicate code we already pull in as a dependency.
+# Teammates' repos cloned for reference (./dev clone-repos) — read-only copies
+# with their own history upstream, not ours to carry.
 repos/
+# ...except PublicTransportHackathon, which is a real build dependency
+# (pyproject's publictransporthackathon points at it). It's a PRIVATE repo, so
+# a git+https dependency can't be fetched by CI or by anyone who clones this
+# public repo — vendoring the source is the only way the project builds
+# anywhere but this container. Upstream:
+# github.com/noamf2001/PublicTransportHackathon @ analyze-per-subsequent-stops
+!repos/PublicTransportHackathon/
 
 # Cached Stride API responses (re-fetchable; keeps the API healthy)
 .cache/
