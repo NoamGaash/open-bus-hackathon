@@ -29,6 +29,67 @@ interface Hover {
   cell: HeatmapCell
 }
 
+const LIGHT_COLORS = {
+  mid: '#f0efec',
+  neg: ['#cde2fb', '#86b6ef', '#3987e5', '#1c5cab'],
+  pos: ['#fbd6d6', '#e98c8b', '#dc5655', '#a82c2c'],
+}
+
+const DARK_COLORS = {
+  mid: '#383835',
+  neg: ['#1c5cab', '#3987e5', '#86b6ef', '#cde2fb'],
+  pos: ['#a82c2c', '#dc5655', '#e98c8b', '#fbd6d6'],
+}
+
+function getThemeColors(): typeof LIGHT_COLORS {
+  if (typeof document === 'undefined') return LIGHT_COLORS
+  const theme = document.documentElement.getAttribute('data-theme')
+  if (theme === 'dark') return DARK_COLORS
+  if (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return DARK_COLORS
+  }
+  return LIGHT_COLORS
+}
+
+function parseHex(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  return [r, g, b]
+}
+
+function interpolate(color1: string, color2: string, f: number): string {
+  const [r1, g1, b1] = parseHex(color1)
+  const [r2, g2, b2] = parseHex(color2)
+  const r = Math.round(r1 + (r2 - r1) * f)
+  const g = Math.round(g1 + (g2 - g1) * f)
+  const b = Math.round(b1 + (b2 - b1) * f)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
+function getContinuousColor(value: number, center: number, extent: number): { bg: string; isDark: boolean } {
+  const diff = value - center
+  if (Math.abs(diff) < 1e-9) {
+    const colors = getThemeColors()
+    return { bg: colors.mid, isDark: false }
+  }
+
+  const colors = getThemeColors()
+  const stops = diff < 0 ? [colors.mid, ...colors.neg] : [colors.mid, ...colors.pos]
+
+  const factor = Math.min(1.0, Math.abs(diff) / extent)
+  const index = factor * 4
+  const i = Math.min(3, Math.floor(index))
+  const f = index - i
+
+  const bg = interpolate(stops[i], stops[i + 1], f)
+  const isDarkTheme = colors === DARK_COLORS
+  const isDarkCell = isDarkTheme ? index < 2 : index >= 2
+
+  return { bg, isDark: isDarkCell }
+}
+
 export function Heatmap({ result }: { result: AnalysisResult }) {
   const hm = result.heatmap!
   const [hover, setHover] = useState<Hover | null>(null)
@@ -54,20 +115,6 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
   if (!hm.row_labels.length || !hm.col_labels.length) {
     return <p className="muted">No data to plot.</p>
   }
-
-  const armIndex = (v: number) =>
-    Math.min(3, Math.floor((Math.abs(v - (hm.center ?? 0)) / extent) * 4))
-
-  const colorFor = (v: number | null | undefined): string | undefined => {
-    if (v === null || v === undefined) return undefined
-    const d = v - (hm.center ?? 0)
-    if (Math.abs(d) < 1e-9) return 'var(--div-mid)'
-    return (d < 0 ? NEG : POS)[armIndex(v)]
-  }
-
-  // The outer steps of both arms are dark enough to need light text on them.
-  const inkFor = (v: number | null | undefined): string =>
-    v === null || v === undefined ? 'var(--muted)' : armIndex(v) >= 2 ? '#ffffff' : 'var(--ink)'
 
   return (
     <div style={{ minWidth: 0 }}>
@@ -95,11 +142,12 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
                   if (v === null) {
                     return <td key={colLabel + j} className="hm-cell hm-empty" aria-label="no data" />
                   }
+                  const { bg, isDark } = getContinuousColor(v, hm.center ?? 0, extent)
                   return (
                     <td
                       key={colLabel + j}
                       className={`hm-cell${cell?.weak ? ' hm-weak' : ''}`}
-                      style={{ background: colorFor(v), color: inkFor(v) }}
+                      style={{ background: bg, color: isDark ? '#ffffff' : 'var(--ink)' }}
                       onMouseEnter={(e) =>
                         setHover({ cx: e.clientX, cy: e.clientY, rowLabel, colLabel, cell: cell! })
                       }

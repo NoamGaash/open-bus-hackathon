@@ -224,6 +224,14 @@ def _load(line_ref: int, operator_ref: int, date_from: date, date_to: date,
             return None
         planned = pd.DataFrame(planned_rows).drop_duplicates(subset=["id"])
         planned["start_time"] = pd.to_datetime(planned["start_time"], utc=True)
+        n_fetched = len(planned)
+        # Verified live: a real minority of /gtfs_rides/list rows come back with
+        # start_time (and end_time) null — a GTFS source data gap, not a SIRI
+        # matching problem. A ride with no scheduled time can't be timed or
+        # ghost-checked at all, so these are dropped up front rather than
+        # falling through the join as a spurious unmatched "ghost".
+        planned = planned.dropna(subset=["start_time"])
+        n_no_schedule = n_fetched - len(planned)
         n_planned_raw = len(planned)
         # Two distinct GTFS journeys sharing the exact same scheduled minute
         # are indistinguishable from SIRI alone (SIRI rides are also keyed by
@@ -259,6 +267,33 @@ def _load(line_ref: int, operator_ref: int, date_from: date, date_to: date,
                      n_vehicles=("siri_ride__vehicle_ref", "nunique"))
                 .reset_index()
             )
+            # First-ever ping is NOT a good departure proxy on its own — verified
+            # live while building this card: for one sampled line, ~80% of
+            # "first pings" landed at almost exactly -30 or -5 minutes before
+            # scheduled time with distance_from_journey_start == 0 and
+            # velocity == 0, i.e. the vehicle sitting at the origin stop before
+            # departure (boarding), not moving. SIRI/operator feeds evidently
+            # start reporting a vehicle against its *next* scheduled ride some
+            # fixed lead time ahead of departure. Using that raw first ping as
+            # "actual departure" would have made ~90% of matched rides look
+            # early — a data artifact, not a real finding. Instead, the first
+            # ping where the vehicle has actually started moving (nonzero
+            # distance-from-start or nonzero velocity) is used as the
+            # departure proxy; falls back to the raw first ping only if the
+            # vehicle was never observed moving in the queried window at all
+            # (flagged via 'stationary_only' below; the earliness threshold
+            # can't apply to a ride that never confirmedly moved anyway).
+            dist = pd.to_numeric(pings["distance_from_journey_start"], errors="coerce").fillna(0)
+            vel = pd.to_numeric(pings["velocity"], errors="coerce").fillna(0)
+            moving = pings[(dist > 0) | (vel > 0)]
+            moving_first = (
+                moving.groupby(["siri_ride__id", "siri_ride__scheduled_start_time"])
+                ["recorded_at_time"].min().rename("first_moving_ping").reset_index()
+            )
+            grouped = grouped.merge(
+                moving_first, on=["siri_ride__id", "siri_ride__scheduled_start_time"], how="left")
+            grouped["stationary_only"] = grouped["first_moving_ping"].isna()
+            grouped["departure_ping"] = grouped["first_moving_ping"].fillna(grouped["first_ping"])
             # If more than one siri_ride id coincidentally shares a scheduled
             # start time, keep the one with the most pings — same
             # largest-group convention used elsewhere in this repo — rather
@@ -269,13 +304,14 @@ def _load(line_ref: int, operator_ref: int, date_from: date, date_to: date,
             n_dupe_pings = 0
             grouped = pd.DataFrame(columns=[
                 "siri_ride__id", "siri_ride__scheduled_start_time",
-                "first_ping", "n_pings", "n_vehicles"])
+                "first_ping", "n_pings", "n_vehicles", "departure_ping", "stationary_only"])
 
         merged = planned.merge(
             grouped, left_on="start_time", right_on="siri_ride__scheduled_start_time", how="left")
-        merged["matched"] = merged["first_ping"].notna()
+        merged["matched"] = merged["departure_ping"].notna()
+        merged["stationary_only"] = merged["stationary_only"].fillna(False)
         merged["delta_min"] = (
-            (merged["first_ping"] - merged["start_time"]).dt.total_seconds() / 60.0)
+            (merged["departure_ping"] - merged["start_time"]).dt.total_seconds() / 60.0)
 
         def classify(row) -> str:
             if not row["matched"]:
@@ -292,13 +328,16 @@ def _load(line_ref: int, operator_ref: int, date_from: date, date_to: date,
 
         diag = {
             "n_planned": n_planned_raw,
+            "n_no_schedule": n_no_schedule,
             "n_raw_pings": n_raw_pings,
             "n_dupe_pings_removed": n_dupe_pings,
             "n_days": merged["date"].nunique(),
             "dup_start_times": dup_start_times,
             "any_siri": bool(n_raw_pings),
+            "n_stationary_only": int(merged["stationary_only"].sum()),
         }
-        out = merged[["date", "start_time", "matched", "delta_min", "category", "n_pings"]].copy()
+        out = merged[["date", "start_time", "matched", "delta_min", "category",
+                      "n_pings", "stationary_only"]].copy()
         return out, diag
 
     return cached("service_violations", key, compute)
