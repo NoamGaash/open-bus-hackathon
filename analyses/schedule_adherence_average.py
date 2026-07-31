@@ -90,16 +90,14 @@ def _largest_group(df: pd.DataFrame, col: str) -> pd.DataFrame:
     return df[df[col] == df[col].value_counts().idxmax()]
 
 
-def _load(line_ref: str, days_back: int):
+def _load(line_ref: str, days_back: int, ref_date: datetime.date):
     """Scan back day by day for the same departure time, keeping days whose plan
     matches the reference stop sequence and that have GPS. Disk-cached: this is
     2 API calls per scanned day."""
 
-    key = ("v2-dedup", line_ref, days_back)
+    key = ("v3-dedup", line_ref, days_back, ref_date.isoformat())
 
     def compute():
-        ref_date = datetime.date.today() - datetime.timedelta(days=LAG_DAYS)
-
         routes = stride.get("/gtfs_routes/list", {
             "line_refs": line_ref,
             "date_from": (ref_date - datetime.timedelta(days=7)).isoformat(),
@@ -199,10 +197,59 @@ def _load(line_ref: str, days_back: int):
     return cached("schedule_adherence", key, compute)
 
 
+class NoMatch(Exception):
+    def __init__(self, line: str, operator: str | None = None, alternatives: list[dict] | None = None):
+        self.line = line
+        self.operator = operator
+        self.alternatives = alternatives or []
+
+
+def _no_match_card(exc: NoMatch):
+    listed = [f"{a['agency_name']} · {a['route_long_name']} (dir {a['route_direction']})"
+              for a in exc.alternatives]
+    notes = [f"No route matches line {exc.line} with the filters you set."]
+    if listed:
+        notes.append("Routes that do use this line number: " + "; ".join(listed[:8])
+                     + (f" (+{len(listed) - 8} more)" if len(listed) > 8 else ""))
+        notes.append("Pick one of those operators, or clear the search filters.")
+    else:
+        notes.append("No route carries this number in the selected date range at "
+                     "all — try a different line or widen the dates.")
+    return metrics(("No match", 0), notes=notes)
+
+
 def _fetch(req: AnalysisRequest):
     line_ref = str(req.opt("line_ref", "18663") or "18663")
-    days_back = int(req.opt("days_back", 21) or 21)
-    return _load(line_ref, days_back)
+    
+    if req.line:
+        routes_df = stride.routes(
+            lines=[req.line],
+            operators=[req.operator] if req.operator else None,
+            date_from=req.date_from,
+            date_to=req.date_to,
+            limit=200,
+        )
+        if routes_df.empty:
+            alts_df = stride.routes(
+                lines=[req.line],
+                date_from=req.date_from,
+                date_to=req.date_to,
+                limit=200,
+            )
+            alts = alts_df.to_dict("records") if not alts_df.empty else []
+            raise NoMatch(req.line, req.operator, alts)
+        line_ref = str(routes_df.iloc[0]["line_ref"])
+        
+    # SIRI lags LAG_DAYS (3 days) behind live
+    ref_date = min(req.date_to, datetime.date.today() - datetime.timedelta(days=LAG_DAYS))
+    ref_date = max(ref_date, req.date_from)
+    
+    days_diff = (ref_date - req.date_from).days + 1
+    days_back_opt = int(req.opt("days_back", 21) or 21)
+    days_back = min(days_diff, days_back_opt)
+    days_back = max(1, days_back)
+    
+    return _load(line_ref, days_back, ref_date)
 
 
 def _per_stop_elapsed(data: dict):
@@ -250,11 +297,14 @@ _OPTIONS = [
                 "width of the fan is the day-to-day unreliability.",
     author="yuvalko1",
     tags=["reliability", "punctuality", "gps", "interactive"],
-    inputs=[],
+    inputs=["lines", "operators", "dates"],
     options=_OPTIONS,
 )
 def run_average(req: AnalysisRequest):
-    data = _fetch(req)
+    try:
+        data = _fetch(req)
+    except NoMatch as exc:
+        return _no_match_card(exc)
     if data is None:
         return metrics(("No data", 0), notes=[
             "No day in the scanned window had both a matching timetable and GPS "
@@ -344,11 +394,14 @@ def run_average(req: AnalysisRequest):
                 "pings that matched it — not at its timetable coordinate.",
     author="yuvalko1",
     tags=["reliability", "gps", "map", "interactive"],
-    inputs=[],
+    inputs=["lines", "operators", "dates"],
     options=_OPTIONS,
 )
 def run_map(req: AnalysisRequest):
-    data = _fetch(req)
+    try:
+        data = _fetch(req)
+    except NoMatch as exc:
+        return _no_match_card(exc)
     if data is None:
         return metrics(("No data", 0), notes=[
             "No day in the scanned window had both a matching timetable and GPS "
@@ -461,11 +514,14 @@ def run_map(req: AnalysisRequest):
                 "lost it.",
     author="yuvalko1",
     tags=["reliability", "punctuality", "gps", "interactive"],
-    inputs=[],
+    inputs=["lines", "operators", "dates"],
     options=_OPTIONS,
 )
 def run_by_day(req: AnalysisRequest):
-    data = _fetch(req)
+    try:
+        data = _fetch(req)
+    except NoMatch as exc:
+        return _no_match_card(exc)
     if data is None:
         return metrics(("No data", 0), notes=[
             "No day in the scanned window had both a matching timetable and GPS "

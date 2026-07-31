@@ -35,17 +35,18 @@ from bus_times import (
     stop_coverage,
 )
 from bus_times.config import DEFAULT_LAG_DAYS, DEFAULT_MIN_SAMPLES
+from bus_times.viz.segment_bars import plot_segment_times
+from bus_times.viz.marey import plot_marey
+from bus_times.viz.heatmap import plot_segment_hour_heatmap
 
 from openbus_hack import (
     AnalysisRequest,
     AnalysisResult,
     OptionSpec,
-    metrics,
-    Point,
-    Series,
+    Table,
     analysis,
-    bar_chart,
-    heatmap,
+    image,
+    metrics,
 )
 from openbus_hack.diskcache import cached
 
@@ -229,24 +230,13 @@ def run_segments(req: AnalysisRequest):
     except NoMatch as exc:
         return _no_match_card(exc)
     aggregated = aggregate_segments(ride_segments, DEFAULT_MIN_SAMPLES).sort_values("segment_index")
-    labels = [f"{r.from_name} ← {r.to_name}" for r in aggregated.itertuples()]
-
-    # Long-format frame bar_chart() expects: one row per (segment, {Actual, Planned}).
-    # Only the "Actual" rows carry a p25/p75 whisker — "Planned" is a single number,
-    # nothing to spread.
-    long = pd.DataFrame({
-        "segment": [*labels, *labels],
-        "kind": ["Actual (median)"] * len(aggregated) + ["Planned"] * len(aggregated),
-        "minutes": [*(aggregated["actual_median_s"] / 60), *(aggregated["planned_duration_s"] / 60)],
-        "p25": [*(aggregated["actual_p25_s"] / 60), *([None] * len(aggregated))],
-        "p75": [*(aggregated["actual_p75_s"] / 60), *([None] * len(aggregated))],
-    })
 
     weak = int((~aggregated["is_reliable"]).sum())
     notes = [
         quality_summary(aggregated),
         "The whisker on each Actual bar is the ride-to-ride interquartile spread "
         "(p25-p75), not a plain min-max range.",
+        "Toggle 'Table view' at the top-right of the card to see exact numeric median and percentile values.",
         _CREDIT,
     ]
     if weak:
@@ -255,13 +245,24 @@ def run_segments(req: AnalysisRequest):
                         "'not enough evidence'.")
     notes = [*_match_notes(line, alts), *notes]
 
-    return bar_chart(
-        long, x="segment", y="minutes", series="kind", low="p25", high="p75", horizontal=True,
-        title="Where the timetable is optimistic",
-        subtitle=f"{line.label} · {subtitle}",
-        x_label="segment", y_label="minutes",
-        notes=notes,
+    t = Table(
+        columns=["segment", "actual_median_min", "actual_p25_min", "actual_p75_min", "planned_duration_min"],
+        rows=[
+            [
+                f"{r.from_name} ← {r.to_name}",
+                round(r.actual_median_s / 60, 2),
+                round(r.actual_p25_s / 60, 2),
+                round(r.actual_p75_s / 60, 2),
+                round(r.planned_duration_s / 60, 2),
+            ]
+            for r in aggregated.itertuples()
+        ]
     )
+
+    fig = plot_segment_times(aggregated, line.label, subtitle, mode="light", stops_on_x=False)
+    res = image(fig, title="Where the timetable is optimistic", subtitle=f"{line.label} · {subtitle}", notes=notes)
+    res.table = t
+    return res
 
 
 @analysis(
@@ -283,61 +284,42 @@ def run_marey(req: AnalysisRequest):
     actual, planned = elapsed_profiles(stop_events)
     coverage = stop_coverage(stop_events)
 
-    planned = planned.sort_values("stop_sequence")
+    planned_sorted = planned.sort_values("stop_sequence")
     coverage_by_seq = coverage.set_index("stop_sequence")["coverage"]
-    y_tick_labels = planned["stop_name"].tolist()
     y_tick_weak = [
         bool(coverage_by_seq.get(seq, 1.0) < _WEAK_COVERAGE)
-        for seq in planned["stop_sequence"]
+        for seq in planned_sorted["stop_sequence"]
     ]
-
-    # Same cap the static chart used (plot_marey's own max_rides default) — past
-    # ~60 overlapping trajectories the fan turns into a solid block and every
-    # extra ride costs payload without adding anything readable.
-    max_rides = 60
-    ride_ids = actual["siri_ride_id"].drop_duplicates().to_numpy()
-    if len(ride_ids) > max_rides:
-        idx = [round(i) for i in _linspace(0, len(ride_ids) - 1, max_rides)]
-        ride_ids = ride_ids[idx]
-
-    series = []
-    for rid in ride_ids:
-        ride = actual[actual["siri_ride_id"] == rid].sort_values("stop_sequence")
-        series.append(Series(
-            name=f"ride_{rid}",
-            points=[Point(x=float(r.elapsed_min), y=float(r.stop_sequence))
-                    for r in ride.itertuples() if pd.notna(r.elapsed_min)],
-        ))
-    series.append(Series(
-        name="Planned",
-        emphasis=True,
-        points=[Point(x=float(r.elapsed_min), y=float(r.stop_sequence))
-                for r in planned.itertuples()],
-    ))
-
     n_weak = sum(y_tick_weak)
+
     notes = [
         "Each faint line is one sampled ride; the bold dashed line is the schedule. "
         "Steep = moving, flat = stuck, and the width of the fan is the route's "
         "unreliability.",
+        "Toggle 'Table view' to see the scheduled elapsed running time per stop sequence.",
         _CREDIT,
     ]
     if n_weak:
-        weak_names = [name for name, w in zip(y_tick_labels, y_tick_weak) if w][:5]
+        weak_names = [name for name, w in zip(planned_sorted["stop_name"], y_tick_weak) if w][:5]
         more = f" (+{n_weak - 5} more)" if n_weak > 5 else ""
         notes.insert(1, f"Dimmed, italic stop labels ({n_weak} of them) are stops the GPS "
                         f"rarely resolved, incl. {', '.join(weak_names)}{more} — trajectories "
                         "through them are interpolation more than measurement.")
 
     notes = [*_match_notes(line, alts), *notes]
-    return AnalysisResult(
-        kind="chart", chart_type="trajectories", series=series,
-        title="Where the bus loses time",
-        subtitle=f"{line.label} · {subtitle}",
-        x_label="elapsed minutes", y_label=None,
-        y_tick_labels=y_tick_labels, y_tick_weak=y_tick_weak,
-        notes=notes,
-    ).ensure_table()
+
+    t = Table(
+        columns=["stop_sequence", "stop_name", "planned_elapsed_min"],
+        rows=[
+            [int(r.stop_sequence), r.stop_name, round(r.elapsed_min, 2)]
+            for r in planned_sorted.itertuples()
+        ]
+    )
+
+    fig = plot_marey(*elapsed_profiles(stop_events), line.label, subtitle, mode="light", coverage=coverage, stops_on_x=False)
+    res = image(fig, title="Where the bus loses time", subtitle=f"{line.label} · {subtitle}", notes=notes)
+    res.table = t
+    return res
 
 
 def _linspace(start: float, stop: float, num: int) -> list[float]:
@@ -363,27 +345,29 @@ def run_heatmap(req: AnalysisRequest):
         line, _stop_events, ride_segments, subtitle, alts = _fetch(req)
     except NoMatch as exc:
         return _no_match_card(exc)
+    matrix_data = segment_hour_matrix(ride_segments)
     matrix = segment_hour_matrix(ride_segments, DEFAULT_MIN_SAMPLES)
-    # matrix.ratio is indexed by (segment_index, from_name, to_name); the segment
-    # pair is what a reader actually recognises, so label rows with that.
     labels = [f"{from_name} ← {to_name}" for _, from_name, to_name in matrix.ratio.index]
-    return heatmap(
-        matrix.ratio,
-        matrix.count,
-        row_labels=labels,
-        col_labels=[f"{int(h):02d}" for h in matrix.ratio.columns],
-        min_count=DEFAULT_MIN_SAMPLES,
-        center=1.0,
-        title="Which segments break down at rush hour",
-        subtitle=f"{line.label} · {subtitle}",
-        row_axis_label="segment",
-        col_axis_label="departure hour",
-        value_label="actual / planned",
-        notes=[
-            *_match_notes(line, alts),
-            "1.00 means exactly on schedule; above that the segment ran longer than "
-            "the timetable allows. Hatched cells are measured but rest on fewer than "
-            f"{DEFAULT_MIN_SAMPLES} rides; empty cells had no usable ride at all.",
-            _CREDIT,
-        ],
+    cols = [f"{int(h):02d}" for h in matrix.ratio.columns]
+
+    notes = [
+        *_match_notes(line, alts),
+        "1.00 means exactly on schedule; above that the segment ran longer than "
+        "the timetable allows. Hatched cells are measured but rest on fewer than "
+        f"{DEFAULT_MIN_SAMPLES} rides; empty cells had no usable ride at all.",
+        "Toggle 'Table view' at the top-right of the card to see the precise ratio values.",
+        _CREDIT,
+    ]
+
+    t = Table(
+        columns=["segment", *cols],
+        rows=[
+            [labels[i], *(None if pd.isna(val) else round(val, 2) for val in matrix.ratio.iloc[i])]
+            for i in range(len(labels))
+        ]
     )
+
+    fig = plot_segment_hour_heatmap(matrix_data, line.label, subtitle, min_samples=DEFAULT_MIN_SAMPLES, mode="light", stops_on_x=False)
+    res = image(fig, title="Which segments break down at rush hour", subtitle=f"{line.label} · {subtitle}", notes=notes)
+    res.table = t
+    return res

@@ -240,3 +240,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
 a `python` job that `uv sync`s and runs `./dev check` (plus a non-blocking
 `ruff check`), and a `frontend` job that type-checks with `tsc` and runs the
 Playwright suite, uploading the HTML report as an artifact.
+
+## Desired quality checks for the hackathon
+
+https://docs.google.com/spreadsheets/d/1uFikn1oFehRSQzr4VxS09NjVna7_gvvluq2YKs1pl5Y/edit?gid=0#gid=0
