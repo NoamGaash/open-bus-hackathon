@@ -83,7 +83,8 @@ function getContinuousColor(value: number, extent: number): { bg: string; isDark
   const colors = getThemeColors()
   const stops = value < 1.0 ? [colors.mid, ...colors.neg] : [colors.mid, ...colors.pos]
 
-  const factor = Math.min(1.0, dev / extent)
+  // Use power scaling (square root) to stretch smaller deviations, making colors stand out more clearly
+  const factor = Math.pow(Math.min(1.0, dev / extent), 0.5)
   const index = factor * 4
   const i = Math.min(3, Math.floor(index))
   const f = index - i
@@ -218,12 +219,11 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
 
 function Legend({ hm, extent }: { hm: AnalysisResult['heatmap']; extent: number }) {
   if (!hm) return null
-  const centre = hm.center ?? 0
   const swatches = [...NEG].reverse().concat(['var(--div-mid)'], POS)
   return (
     <div className="legend" style={{ marginTop: 10, alignItems: 'center' }}>
       <span className="muted" style={{ fontSize: 11 }}>
-        {fmtNum(centre - extent)}
+        {fmtNum(1 / (1 + extent))}
         {hm.value_suffix ?? ''}
       </span>
       <span style={{ display: 'inline-flex', gap: 2 }}>
@@ -236,7 +236,7 @@ function Legend({ hm, extent }: { hm: AnalysisResult['heatmap']; extent: number 
         ))}
       </span>
       <span className="muted" style={{ fontSize: 11 }}>
-        {fmtNum(centre + extent)}
+        {fmtNum(1 + extent)}
         {hm.value_suffix ?? ''}
       </span>
       <span className="legend-item" style={{ marginInlineStart: 14 }}>
