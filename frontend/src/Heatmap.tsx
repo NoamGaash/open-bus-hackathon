@@ -68,17 +68,22 @@ function interpolate(color1: string, color2: string, f: number): string {
   return `rgb(${r}, ${g}, ${b})`
 }
 
-function getContinuousColor(value: number, center: number, extent: number): { bg: string; isDark: boolean } {
-  const diff = value - center
-  if (Math.abs(diff) < 1e-9) {
+function getContinuousColor(value: number, extent: number): { bg: string; isDark: boolean } {
+  if (value <= 0) {
+    const colors = getThemeColors()
+    return { bg: colors.mid, isDark: false }
+  }
+
+  const dev = value >= 1.0 ? (value - 1.0) : (1.0 / value - 1.0)
+  if (dev < 1e-9) {
     const colors = getThemeColors()
     return { bg: colors.mid, isDark: false }
   }
 
   const colors = getThemeColors()
-  const stops = diff < 0 ? [colors.mid, ...colors.neg] : [colors.mid, ...colors.pos]
+  const stops = value < 1.0 ? [colors.mid, ...colors.neg] : [colors.mid, ...colors.pos]
 
-  const factor = Math.min(1.0, Math.abs(diff) / extent)
+  const factor = Math.min(1.0, dev / extent)
   const index = factor * 4
   const i = Math.min(3, Math.floor(index))
   const f = index - i
@@ -100,17 +105,17 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
     return m
   }, [hm.cells])
 
-  // Scale extent: the largest deviation from centre in either direction, so the
-  // two arms stay symmetric and a ratio of 2.0 reads as far from 1.0 as 0.5 does.
+  // Scale extent: the largest deviation from 1.0, with symmetric 1/x mapping for values < 1.0
   const extent = useMemo(() => {
-    const centre = hm.center ?? 0
-    let max = 0
+    let maxDev = 0
     for (const c of hm.cells) {
-      if (c.value === null || c.value === undefined) continue
-      max = Math.max(max, Math.abs(c.value - centre))
+      const x = c.value
+      if (x === null || x === undefined || x <= 0) continue
+      const dev = x >= 1.0 ? (x - 1.0) : (1.0 / x - 1.0)
+      maxDev = Math.max(maxDev, dev)
     }
-    return max || 1
-  }, [hm.cells, hm.center])
+    return maxDev || 1.0
+  }, [hm.cells])
 
   if (!hm.row_labels.length || !hm.col_labels.length) {
     return <p className="muted">No data to plot.</p>
@@ -142,7 +147,7 @@ export function Heatmap({ result }: { result: AnalysisResult }) {
                   if (v === null) {
                     return <td key={colLabel + j} className="hm-cell hm-empty" aria-label="no data" />
                   }
-                  const { bg, isDark } = getContinuousColor(v, hm.center ?? 0, extent)
+                  const { bg, isDark } = getContinuousColor(v, extent)
                   return (
                     <td
                       key={colLabel + j}
