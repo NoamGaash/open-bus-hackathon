@@ -73,7 +73,7 @@ def use_openbus_style(mode: Literal["light", "dark"] = "light") -> None:
         "savefig.facecolor": c["surface"],
         "figure.figsize": (8, 4.5),
         "figure.dpi": 110,
-        "font.family": ["DejaVu Sans"],  # has Hebrew glyphs; agency names are Hebrew
+        "font.family": ["Noto Sans Hebrew", "DejaVu Sans"],  # has Hebrew glyphs; agency names are Hebrew
         "font.size": 11,
         "axes.prop_cycle": cycler(color=palette),
         "axes.edgecolor": c["axis"],

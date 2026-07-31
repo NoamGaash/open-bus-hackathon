@@ -266,16 +266,9 @@ _RUN = re.compile(r"[0-9A-Za-z]+|[^0-9A-Za-z]+")
 
 
 def _rtl(text: str) -> str:
-    """matplotlib has no bidi engine — lay Hebrew out right-to-left by hand.
-
-    Runs are emitted in reverse order, but digit/latin runs keep their own
-    direction: line "28א" must display as "א28", not "א82".
-    """
-    if not any("֐" <= c <= "׿" for c in text):
-        return text
-    runs = _RUN.findall(text)
-    return "".join(r if r[0].isascii() and r[0].isalnum() else r[::-1]
-                   for r in reversed(runs))
+    """Since modern matplotlib (>= 3.11) has native bidi and HarfBuzz support,
+    we do not reorder or reverse the text, as doing so would garble the characters."""
+    return text
 
 
 def _score_color(score: float) -> str:
