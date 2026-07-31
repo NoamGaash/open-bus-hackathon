@@ -33,7 +33,7 @@ Thumbs.db
 
 # Teammates' repos cloned for reference (./dev clone-repos) — read-only copies
 # with their own history upstream, not ours to carry.
-repos/
+repos/*
 # ...except PublicTransportHackathon, which is a real build dependency
 # (pyproject's publictransporthackathon points at it). It's a PRIVATE repo, so
 # a git+https dependency can't be fetched by CI or by anyone who clones this
