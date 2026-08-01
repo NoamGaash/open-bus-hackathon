@@ -158,6 +158,12 @@ disk and won't hammer the shared DB.
 | Line info lookup (e.g. line 86001) | https://markav.net/line/86001/ |
 | Hasadna Slack (#opendata / open-bus channels) | https://join.slack.com/t/hasadna/shared_invite/zt-458cp0v0n-GSnHzAq6F5aHeK43O4YeeA |
 
+**What each analysis actually does:** [`algorithms/`](algorithms/) — one file per
+solution, with the author, the algorithm, the reasoning, findings (each with a
+confidence level), and criticism. [`algorithms/upstream-issues.md`](algorithms/upstream-issues.md)
+collects every upstream defect these solutions hit, as paste-ready issue drafts
+routed to `open-bus-map-search` and its sibling repos.
+
 **Related work — read before trusting a number:**
 [`docs/busanalysis.md`](docs/busanalysis.md) summarises
 [lihay7/BusAnalysis](https://github.com/lihay7/BusAnalysis) (private), a national

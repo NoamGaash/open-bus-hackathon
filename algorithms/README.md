@@ -38,6 +38,25 @@ each one belongs in. That is the prep for filing against
 [hasadna/open-bus-map-search](https://github.com/hasadna/open-bus-map-search)
 and its sibling repos.
 
+## Card status
+
+Every registered analysis was run once with a default `AnalysisRequest` on
+2026-08-01. **16 of 17 cards render; 1 errors.**
+
+| Result | Cards |
+|---|---|
+| ✅ renders | `bus-segment-reliability`, `bus-marey-diagram`, `bus-hourly-heatmap`, `bus-bunching`, `busline-usage-anomaly`, `days-with-no-cancellations`, `service-by-operator`, `gps-trace-map`, `route-divergence`, `route-divergence-map`, `schedule-adherence-average`, `schedule-adherence-map`, `schedule-adherence-by-day`, `service-violations`, `service-violations-by-day`, `siri-coverage` |
+| ❌ errors | `poisson-arrival-regularity` — `AttributeError: 'LineSpec' object has no attribute 'short_name'`. One-line fix, see [poisson-arrival-regularity.md](poisson-arrival-regularity.md#status) |
+
+Note that `./dev check` only verifies that modules **import**, so it does not
+catch a card that imports cleanly and raises at runtime. A smoke test that runs
+every registered analysis once and asserts `kind != "error"` would have caught
+this one.
+
+Rendering is not the same as being right — `service-by-operator` renders a
+confident chart showing ~0% of buses ran, which is a broken upstream column and
+not a fact about Israel. See [service-by-operator.md](service-by-operator.md).
+
 ## Confidence levels
 
 Every finding below carries one of these. They describe **how much the finding
