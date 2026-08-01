@@ -130,7 +130,7 @@ def run_poisson(req: AnalysisRequest):
     benchmark_points = [Point(x=float(r.stop_index), y=1.0) for r in df.itertuples()]
 
     series = [
-        Series(name=f"Line {line.short_name} CV", points=points),
+        Series(name=f"Line {req.line or '23'} CV", points=points),
         Series(name="Exponential Benchmark (CV=1)", points=benchmark_points),
     ]
 
@@ -165,7 +165,7 @@ def run_poisson(req: AnalysisRequest):
             marker="o",
             color="#2a78d6",
             linewidth=2.0,
-            label=f"Line {line.short_name}",
+            label=f"Line {req.line or '23'}",
         )
         ax.axhline(
             1.0,
