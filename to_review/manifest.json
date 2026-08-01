@@ -1,0 +1,354 @@
+[
+  {
+    "n": 1,
+    "title": "Dashboard charts show ~0% actual rides — `total_actual_rides` is unpopulated upstream",
+    "labels": [
+      "bug",
+      "data research",
+      "frontend",
+      "backend"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/01-dashboard-charts-show-0-actual-rides-totalactualrides-is-unp.md"
+  },
+  {
+    "n": 2,
+    "title": "`stride-api:` `/siri_vehicle_locations/list` accepts `gtfs_route__route_short_name` and silently ignores it",
+    "labels": [
+      "bug",
+      "backend"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/02-stride-api-sirivehiclelocationslist-accepts-gtfsrouteroutesh.md"
+  },
+  {
+    "n": 3,
+    "title": "`pipelines:` SIRI→GTFS ride-matching has written no matches since 2024-10",
+    "labels": [
+      "bug",
+      "backend",
+      "bus-expert-needed"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/03-pipelines-sirigtfs-ride-matching-has-written-no-matches-sinc.md"
+  },
+  {
+    "n": 4,
+    "title": "`stride-db:` duplicate `siri_ride` journeys and repeated location rows",
+    "labels": [
+      "bug",
+      "data research"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/04-stride-db-duplicate-siriride-journeys-and-repeated-location.md"
+  },
+  {
+    "n": 5,
+    "title": "`stride-api:` `rides_execution.actual_start_time` always equals `planned_start_time`",
+    "labels": [
+      "documentation",
+      "data research"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/05-stride-api-ridesexecutionactualstarttime-always-equals-plann.md"
+  },
+  {
+    "n": 6,
+    "title": "\"First SIRI ping\" is not departure time — the feed reports a vehicle while it is still parked",
+    "labels": [
+      "data research",
+      "bus-expert-needed"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/06-first-siri-ping-is-not-departure-time-the-feed-reports-a-veh.md"
+  },
+  {
+    "n": 7,
+    "title": "`stride-api:` document four undocumented endpoint constraints",
+    "labels": [
+      "documentation",
+      "backend"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/07-stride-api-document-four-undocumented-endpoint-constraints.md"
+  },
+  {
+    "n": 8,
+    "title": "`stride-api:` naive datetimes return 500 instead of a 4xx",
+    "labels": [
+      "bug",
+      "good first issue",
+      "backend"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/08-stride-api-naive-datetimes-return-500-instead-of-a-4xx.md"
+  },
+  {
+    "n": 9,
+    "title": "`stride-api:` `siri_rides__schedualed_start_time_*` is misspelled",
+    "labels": [
+      "good first issue",
+      "backend"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/09-stride-api-siriridesschedualedstarttime-is-misspelled.md"
+  },
+  {
+    "n": 10,
+    "title": "`stride-db:` null `start_time` on a minority of `/gtfs_rides/list` rows",
+    "labels": [
+      "data research"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/10-stride-db-null-starttime-on-a-minority-of-gtfsrideslist-rows.md"
+  },
+  {
+    "n": 11,
+    "title": "`stride-db:` some operators never appear in the SIRI feed at all",
+    "labels": [
+      "data research",
+      "bus-expert-needed"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/11-stride-db-some-operators-never-appear-in-the-siri-feed-at-al.md"
+  },
+  {
+    "n": 12,
+    "title": "`pipelines:` GTFS import appears to retain the previous release, doubling planned counts on some dates",
+    "labels": [
+      "bug",
+      "backend"
+    ],
+    "group": 1,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/12-pipelines-gtfs-import-appears-to-retain-the-previous-release.md"
+  },
+  {
+    "n": 13,
+    "title": "Segment reliability: where the timetable is optimistic",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/13-segment-reliability-where-the-timetable-is-optimistic.md"
+  },
+  {
+    "n": 14,
+    "title": "Marey time-space diagram for one line",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/14-marey-time-space-diagram-for-one-line.md"
+  },
+  {
+    "n": 15,
+    "title": "Segment × hour heatmap: which segments break down at rush hour",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/15-segment-hour-heatmap-which-segments-break-down-at-rush-hour.md"
+  },
+  {
+    "n": 16,
+    "title": "Schedule adherence: how much the same departure varies day to day",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/16-schedule-adherence-how-much-the-same-departure-varies-day-to.md"
+  },
+  {
+    "n": 17,
+    "title": "Planned route vs. GPS-measured route, on a map",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/17-planned-route-vs-gps-measured-route-on-a-map.md"
+  },
+  {
+    "n": 18,
+    "title": "Which day ran worst — journey time per day against the schedule",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/18-which-day-ran-worst-journey-time-per-day-against-the-schedul.md"
+  },
+  {
+    "n": 19,
+    "title": "SIRI GPS coverage of planned stops, by hour",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "data research"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/19-siri-gps-coverage-of-planned-stops-by-hour.md"
+  },
+  {
+    "n": 20,
+    "title": "Poisson headway decay: CV along the route against the CV=1 benchmark",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/20-poisson-headway-decay-cv-along-the-route-against-the-cv1-ben.md"
+  },
+  {
+    "n": 21,
+    "title": "Bus bunching: headway regularity against scheduled spacing",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/21-bus-bunching-headway-regularity-against-scheduled-spacing.md"
+  },
+  {
+    "n": 22,
+    "title": "Route divergence: rides that strayed from the planned route",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "backend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/22-route-divergence-rides-that-strayed-from-the-planned-route.md"
+  },
+  {
+    "n": 23,
+    "title": "Route divergence map: where buses leave the route",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/23-route-divergence-map-where-buses-leave-the-route.md"
+  },
+  {
+    "n": 24,
+    "title": "Ghost rides, early and late departures per line",
+    "labels": [
+      "enhancement",
+      "bus-expert-needed",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/24-ghost-rides-early-and-late-departures-per-line.md"
+  },
+  {
+    "n": 25,
+    "title": "Which days had the worst service failures",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/25-which-days-had-the-worst-service-failures.md"
+  },
+  {
+    "n": 26,
+    "title": "Days-without-cancellations score per line",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/26-days-without-cancellations-score-per-line.md"
+  },
+  {
+    "n": 27,
+    "title": "Days-without-cancellations score per operator",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/27-days-without-cancellations-score-per-operator.md"
+  },
+  {
+    "n": 28,
+    "title": "Ridership anomaly: lines carrying unusually few riders for their peer group",
+    "labels": [
+      "enhancement",
+      "data research",
+      "backend"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/28-ridership-anomaly-lines-carrying-unusually-few-riders-for-th.md"
+  },
+  {
+    "n": 29,
+    "title": "One bus, actual GPS trace, coloured by elapsed time",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "good first issue"
+    ],
+    "group": 2,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/29-one-bus-actual-gps-trace-coloured-by-elapsed-time.md"
+  },
+  {
+    "n": 30,
+    "title": "Aggregate segment reliability into a per-operator punctuality metric",
+    "labels": [
+      "enhancement",
+      "backend",
+      "data research"
+    ],
+    "group": 3,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/30-aggregate-segment-reliability-into-a-per-operator-punctualit.md"
+  },
+  {
+    "n": 31,
+    "title": "Aggregate bunching CV into a per-line and per-region regularity score",
+    "labels": [
+      "enhancement",
+      "backend",
+      "data research"
+    ],
+    "group": 3,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/31-aggregate-bunching-cv-into-a-per-line-and-per-region-regular.md"
+  },
+  {
+    "n": 32,
+    "title": "Rank operators by days-without-cancellations (the unbuilt \"method 3\")",
+    "labels": [
+      "enhancement",
+      "backend"
+    ],
+    "group": 3,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/32-rank-operators-by-days-without-cancellations-the-unbuilt-met.md"
+  },
+  {
+    "n": 33,
+    "title": "Per-region SIRI coverage scorecard",
+    "labels": [
+      "enhancement",
+      "backend",
+      "data research"
+    ],
+    "group": 3,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/33-per-region-siri-coverage-scorecard.md"
+  },
+  {
+    "n": 34,
+    "title": "Pre-aggregate derived arrival times so these analyses can run interactively",
+    "labels": [
+      "enhancement",
+      "backend",
+      "bus-expert-needed"
+    ],
+    "group": 3,
+    "file": "/tmp/claude-1000/-workspaces-hackathon/1b7b7970-c36b-43b5-872f-2279c19796f1/scratchpad/issues/34-pre-aggregate-derived-arrival-times-so-these-analyses-can-ru.md"
+  }
+]
