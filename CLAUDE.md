@@ -86,7 +86,12 @@ not the shared community API. `gtfs_rides_agg`'s `group_by` only accepts the
 fields in `AGG_GROUP_BY_FIELDS` (`gtfs_route_date`, `gtfs_route_hour`,
 `operator_ref`, `day_of_week`, `line_ref`) — anything else 500s server-side,
 so it's validated client-side first. Prefer `gtfs_rides_agg`/`siri_rides`
-over paging raw endpoints when the shape fits.
+over paging raw endpoints when the shape fits. Known defects in the upstream
+data — the stored SIRI→GTFS ride link is empty since 2024-10, `siri_ride` has
+~2.6% duplicate journeys, `first_vehicle_location_id` is a processing-state
+flag rather than a transmission signal, and five operators never reach the
+feed at all — are documented in `docs/busanalysis.md`. Check it before
+building an analysis that joins planned to actual or reads those columns.
 
 **Styling is shared between Python and TypeScript by convention, not by
 import**: `openbus_hack/theme.py`'s `SERIES_LIGHT`/`SERIES_DARK` palettes are

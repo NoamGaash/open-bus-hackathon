@@ -158,6 +158,15 @@ disk and won't hammer the shared DB.
 | Line info lookup (e.g. line 86001) | https://markav.net/line/86001/ |
 | Hasadna Slack (#opendata / open-bus channels) | https://join.slack.com/t/hasadna/shared_invite/zt-458cp0v0n-GSnHzAq6F5aHeK43O4YeeA |
 
+**Related work — read before trusting a number:**
+[`docs/busanalysis.md`](docs/busanalysis.md) summarises
+[lihay7/BusAnalysis](https://github.com/lihay7/BusAnalysis) (private), a national
+planned-vs-actual reconstruction on this same data. It documents **five defects in
+the upstream `stride` tables** that constrain what our analyses can honestly claim —
+most importantly that the stored SIRI→GTFS ride link has been **empty since October
+2024**, and that `first_vehicle_location_id` is a processing-state flag, not evidence
+a vehicle stopped transmitting.
+
 ---
 
 ## Your scratch space
