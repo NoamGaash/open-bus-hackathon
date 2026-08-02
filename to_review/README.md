@@ -83,9 +83,9 @@ infrastructure. These 21 close that gap.
 
 ### Start here
 
-- **[55 — update the קול קורא page](55-update-the-------page--all-four-open-questions-now-have-answ.md)** — the sharpest one. Four open public questions, four hackathon answers, plus three better questions to ask next.
-- **[36 — why buses bunch](36-port-why-buses-bunch--attribute-every-event-to-a-cause.md)** — 13% terminal-born vs 73% en route. Different problems, different owners.
-- **[43 — bus-minutes-lost ranking](43-port-bus-minutes-lost-corridor-ranking--where-a-bus-lane-pay.md)** — Geha W-bound costs 787 bus-minutes an hour.
+- **[55 — update the קול קורא page](55-update-the-%D7%A7%D7%95%D7%9C-%D7%A7%D7%95%D7%A8%D7%90-page-all-four-open-questions-now-have-an.md)** — the sharpest one. Four open public questions, four hackathon answers, plus three better questions to ask next.
+- **[36 — why buses bunch](36-port-why-buses-bunch-attribute-every-event-to-a-cause.md)** — 13% terminal-born vs 73% en route. Different problems, different owners.
+- **[43 — bus-minutes-lost ranking](43-port-bus-minutes-lost-corridor-ranking-where-a-bus-lane-pays.md)** — Geha W-bound costs 787 bus-minutes an hour.
 - **[37 — what riders actually wait](37-port-planned-gap-vs-effective-gap-and-what-riders-actually-w.md)** — line 4 riders wait 7.9 min against a promised 3.5.
 
 ### Also done in Phase 2
