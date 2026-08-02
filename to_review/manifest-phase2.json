@@ -1,0 +1,224 @@
+[
+  {
+    "n": 35,
+    "title": "Surface the \"Where the buses bunch\" dashboard",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "good first issue"
+    ],
+    "group": 4,
+    "file": "to_review/35-surface-the-where-the-buses-bunch-dashboard.md"
+  },
+  {
+    "n": 36,
+    "title": "Port: why buses bunch — attribute every event to a cause",
+    "labels": [
+      "enhancement",
+      "backend",
+      "bus-expert-needed"
+    ],
+    "group": 4,
+    "file": "to_review/36-port-why-buses-bunch-attribute-every-event-to-a-cause.md"
+  },
+  {
+    "n": 37,
+    "title": "Port: planned gap vs effective gap, and what riders actually wait",
+    "labels": [
+      "enhancement",
+      "backend",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/37-port-planned-gap-vs-effective-gap-and-what-riders-actually-w.md"
+  },
+  {
+    "n": 38,
+    "title": "Port: per-line Marey diagram over the full bunching dataset",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/38-port-per-line-marey-diagram-over-the-full-bunching-dataset.md"
+  },
+  {
+    "n": 39,
+    "title": "Port: bunching league table with hour histogram, filters and CSV export",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/39-port-bunching-league-table-with-hour-histogram-filters-and-c.md"
+  },
+  {
+    "n": 40,
+    "title": "Adopt the \"grow the sample\" incremental-loading pattern",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/40-adopt-the-grow-the-sample-incremental-loading-pattern.md"
+  },
+  {
+    "n": 41,
+    "title": "Surface the \"Where the buses crawl\" street-speed dashboard",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "good first issue"
+    ],
+    "group": 4,
+    "file": "to_review/41-surface-the-where-the-buses-crawl-street-speed-dashboard.md"
+  },
+  {
+    "n": 42,
+    "title": "Port: street-level bus speed map with six colour modes",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "backend"
+    ],
+    "group": 4,
+    "file": "to_review/42-port-street-level-bus-speed-map-with-six-colour-modes.md"
+  },
+  {
+    "n": 43,
+    "title": "Port: bus-minutes-lost corridor ranking — where a bus lane pays off",
+    "labels": [
+      "enhancement",
+      "backend",
+      "bus-expert-needed"
+    ],
+    "group": 4,
+    "file": "to_review/43-port-bus-minutes-lost-corridor-ranking-where-a-bus-lane-pays.md"
+  },
+  {
+    "n": 44,
+    "title": "Surface the streets with no bus service (1,308 km, 59% of the mapped network)",
+    "labels": [
+      "enhancement",
+      "data research"
+    ],
+    "group": 4,
+    "file": "to_review/44-surface-the-streets-with-no-bus-service-1308-km-59-of-the-ma.md"
+  },
+  {
+    "n": 45,
+    "title": "Document the door-to-door speed method (ping pairs → street segments)",
+    "labels": [
+      "documentation",
+      "data research"
+    ],
+    "group": 4,
+    "file": "to_review/45-document-the-door-to-door-speed-method-ping-pairs-street-seg.md"
+  },
+  {
+    "n": 46,
+    "title": "Surface the \"what the open data shows\" editorial page",
+    "labels": [
+      "enhancement",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/46-surface-the-what-the-open-data-shows-editorial-page.md"
+  },
+  {
+    "n": 47,
+    "title": "M1 — the enforcement reality gap, as a live metric",
+    "labels": [
+      "enhancement",
+      "backend",
+      "bus-expert-needed"
+    ],
+    "group": 4,
+    "file": "to_review/47-m1-the-enforcement-reality-gap-as-a-live-metric.md"
+  },
+  {
+    "n": 48,
+    "title": "M2 — what the timetable costs a rider in waiting",
+    "labels": [
+      "enhancement",
+      "backend",
+      "bus-expert-needed"
+    ],
+    "group": 4,
+    "file": "to_review/48-m2-what-the-timetable-costs-a-rider-in-waiting.md"
+  },
+  {
+    "n": 49,
+    "title": "M3 — can the ministry measure its own network at all?",
+    "labels": [
+      "enhancement",
+      "data research"
+    ],
+    "group": 4,
+    "file": "to_review/49-m3-can-the-ministry-measure-its-own-network-at-all.md"
+  },
+  {
+    "n": 50,
+    "title": "Accessibility analysis (UrbanAccess) — researched, never ported",
+    "labels": [
+      "enhancement",
+      "backend",
+      "data research"
+    ],
+    "group": 4,
+    "file": "to_review/50-accessibility-analysis-urbanaccess-researched-never-ported.md"
+  },
+  {
+    "n": 51,
+    "title": "Unported notebooks: per-line arrivals, route-rides loader, routes-between-points",
+    "labels": [
+      "data research",
+      "help needed"
+    ],
+    "group": 4,
+    "file": "to_review/51-unported-notebooks-per-line-arrivals-route-rides-loader-rout.md"
+  },
+  {
+    "n": 52,
+    "title": "Adopt the colourblind-safe series palette (validated, light and dark)",
+    "labels": [
+      "enhancement",
+      "CSS",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/52-adopt-the-colourblind-safe-series-palette-validated-light-an.md"
+  },
+  {
+    "n": 53,
+    "title": "Chart contract: a table fallback, and every chart marks its own weak spots",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "semantic html"
+    ],
+    "group": 4,
+    "file": "to_review/53-chart-contract-a-table-fallback-and-every-chart-marks-its-ow.md"
+  },
+  {
+    "n": 54,
+    "title": "Source-material appendix: show the raw notebook beside the finished chart",
+    "labels": [
+      "enhancement",
+      "non-code"
+    ],
+    "group": 4,
+    "file": "to_review/54-source-material-appendix-show-the-raw-notebook-beside-the-fi.md"
+  },
+  {
+    "n": 55,
+    "title": "Update the קול קורא page — all four open questions now have answers",
+    "labels": [
+      "enhancement",
+      "non-code",
+      "frontend"
+    ],
+    "group": 4,
+    "file": "to_review/55-update-the-קול-קורא-page-all-four-open-questions-now-have-an.md"
+  }
+]
